@@ -2,6 +2,30 @@
 
 A Rust application for generating sight reading exercises for musicians.
 
+![](images/repo-image.png)
+
+## Quick Start
+
+You need [Rust](https://www.rust-lang.org/tools/install) (2021 edition, so any recent version). From the project folder:
+
+```bash
+# 1. Preview an exercise in the terminal (4 measures in C major)
+cargo run
+
+# 2. Make sheet music: 8 measures in G major, saved as a PDF
+cargo run -- -m 8 -k G --format pdf --output exercise.pdf
+
+# 3. The same in bass clef, in F major
+cargo run -- -m 8 -k F --clef bass --format pdf --output bass.pdf
+```
+
+Open the PDF in any viewer. Every run makes a new random exercise, so run it again for another one.
+The key signature, clef and time signature are printed at the start of each line, and the notes
+stay within the key.
+
+See [Usage](#usage) and [Options](#options) for everything you can change: the number of measures,
+the key, the clef, the range of notes, the note lengths and the size of the intervals.
+
 ## Reading the ASCII Output
 
 The application displays exercises using a simplified ASCII notation. Here's how to interpret the output:
