@@ -30,6 +30,8 @@ fn main() {
     let midi_file = options.midi_file;
     let tempo_bpm = options.tempo_bpm;
     let count_in = options.count_in;
+    let wav_file = options.wav_file;
+    let soundfont = options.soundfont;
 
     // Create configuration
     let config = GeneratorConfig {
@@ -84,6 +86,34 @@ fn main() {
         }
         println!("MIDI saved to: {}", path);
     }
+
+    if let Some(path) = wav_file {
+        let soundfont = match resolve_soundfont(soundfont, std::env::var("SOUNDFONT").ok()) {
+            Ok(soundfont) => soundfont,
+            Err(message) => {
+                eprintln!("Error: {}", message);
+                std::process::exit(1);
+            }
+        };
+        let midi_renderer = presentation::MidiRenderer::new()
+            .with_tempo(tempo_bpm)
+            .with_count_in(count_in);
+        let wav_renderer = presentation::WavRenderer::new(midi_renderer, &soundfont);
+        if let Err(message) = wav_renderer.save_to_file(&measures, &path) {
+            eprintln!("Error: {}", message);
+            std::process::exit(1);
+        }
+        println!("WAV saved to: {}", path);
+    }
+}
+
+/// The SoundFont to use for `--wav`: the `--soundfont` flag, else the `SOUNDFONT` environment variable
+fn resolve_soundfont(flag: Option<String>, env: Option<String>) -> Result<String, String> {
+    flag.or(env).ok_or_else(|| {
+        "--wav needs a SoundFont. Pass --soundfont <FILE> or set the SOUNDFONT environment variable. \
+         GeneralUser GS (free, about 27 MB) is a good choice."
+            .to_string()
+    })
 }
 
 /// Everything the command line can ask for
@@ -100,6 +130,8 @@ struct Options {
     midi_file: Option<String>,
     tempo_bpm: u16,
     count_in: bool,
+    wav_file: Option<String>,
+    soundfont: Option<String>,
 }
 
 /// What the command line asked the program to do
@@ -164,6 +196,8 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     let mut midi_file: Option<String> = None;
     let mut tempo_bpm = DEFAULT_TEMPO_BPM;
     let mut count_in = false;
+    let mut wav_file: Option<String> = None;
+    let mut soundfont: Option<String> = None;
 
     // The first argument is the program name
     let mut i = 1;
@@ -188,6 +222,8 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
             "--format" | "-f" => output_format = flag_value(args, i, "--format")?.to_string(),
             "--output" => output_file = Some(flag_value(args, i, "--output")?.to_string()),
             "--midi" => midi_file = Some(flag_value(args, i, "--midi")?.to_string()),
+            "--wav" => wav_file = Some(flag_value(args, i, "--wav")?.to_string()),
+            "--soundfont" => soundfont = Some(flag_value(args, i, "--soundfont")?.to_string()),
             "--tempo" | "-t" => tempo_bpm = parse_tempo(flag_value(args, i, "--tempo")?)?,
             "--count-in" => {
                 count_in = true;
@@ -214,6 +250,8 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
         midi_file,
         tempo_bpm,
         count_in,
+        wav_file,
+        soundfont,
     }))
 }
 
@@ -336,8 +374,10 @@ fn print_help() {
     println!("  -f, --format <FORMAT>    Output format: ascii, pdf (default: ascii)");
     println!("      --output <FILE>      Output file path (for PDF; default: exercise.pdf)");
     println!("      --midi <FILE>        Also save the exercise as a MIDI file (works with any format)");
-    println!("  -t, --tempo <BPM>        MIDI speed, 20 to 300 (default: 80)");
-    println!("      --count-in           Start the MIDI file with a measure of metronome clicks");
+    println!("      --wav <FILE>         Also save the exercise as a WAV audio file (needs a SoundFont)");
+    println!("      --soundfont <FILE>   SoundFont (.sf2) for --wav (default: the SOUNDFONT environment variable)");
+    println!("  -t, --tempo <BPM>        MIDI/WAV speed, 20 to 300 (default: 80)");
+    println!("      --count-in           Start the MIDI/WAV file with a measure of metronome clicks");
     println!("  -h, --help               Show this help message");
     println!("\nExamples:");
     println!("  sight-reading -m 8 -k G -o 3");
@@ -345,6 +385,7 @@ fn print_help() {
     println!("  sight-reading --format pdf --output exercise.pdf -k A -m 4");
     println!("  sight-reading --format pdf --output bass.pdf --clef bass -k F -m 8");
     println!("  sight-reading -f pdf --output ex.pdf --midi ex.mid -t 90 --count-in");
+    println!("  sight-reading --wav ex.wav --soundfont GeneralUser.sf2 -t 90 --count-in");
 }
 
 #[cfg(test)]
@@ -548,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_missing_values() {
-        for flag in ["-o", "--octaves", "-k", "--key", "-c", "--clef", "-d", "-i", "-f", "-m", "--output", "--midi", "-t", "--tempo"] {
+        for flag in ["-o", "--octaves", "-k", "--key", "-c", "--clef", "-d", "-i", "-f", "-m", "--output", "--midi", "--wav", "--soundfont", "-t", "--tempo"] {
             let message = error(&[flag]);
             assert!(message.contains("requires a value"), "{flag}: {message}");
         }
@@ -560,6 +601,26 @@ mod tests {
         assert!(error(&["--output"]).starts_with("--output"));
         assert!(error(&["--midi"]).starts_with("--midi requires a value"));
         assert!(error(&["-t"]).starts_with("--tempo"));
+        assert!(error(&["--wav"]).starts_with("--wav requires a value"));
+        assert!(error(&["--soundfont"]).starts_with("--soundfont requires a value"));
+    }
+
+    #[test]
+    fn test_wav_and_soundfont_flags_parse() {
+        let options = run(&["--wav", "ex.wav", "--soundfont", "gm.sf2"]);
+        assert_eq!(options.wav_file.as_deref(), Some("ex.wav"));
+        assert_eq!(options.soundfont.as_deref(), Some("gm.sf2"));
+        let options = run(&[]);
+        assert_eq!((options.wav_file, options.soundfont), (None, None));
+    }
+
+    #[test]
+    fn test_resolve_soundfont_prefers_the_flag_then_env_then_errors() {
+        let some = |s: &str| Some(s.to_string());
+        assert_eq!(resolve_soundfont(some("a.sf2"), some("b.sf2")).unwrap(), "a.sf2");
+        assert_eq!(resolve_soundfont(None, some("b.sf2")).unwrap(), "b.sf2");
+        let message = resolve_soundfont(None, None).unwrap_err();
+        assert!(message.contains("--soundfont") && message.contains("SOUNDFONT"), "{message}");
     }
 
     #[test]

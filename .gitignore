@@ -1,2 +1,5 @@
+assets/*
 /target
 *.pdf
+*.wav
+*.sf2

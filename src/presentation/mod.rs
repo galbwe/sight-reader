@@ -7,10 +7,12 @@ mod music_glyphs;
 mod spelling;
 pub mod pdf;
 pub mod tui;
+pub mod wav;
 
 pub use ascii::AsciiNotationRenderer;
 pub use midi::MidiRenderer;
 pub use pdf::PdfNotationRenderer;
+pub use wav::WavRenderer;
 // pub use tui::TuiRenderer;
 
 use crate::domain::{Measure, Note};
