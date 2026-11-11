@@ -53,6 +53,7 @@ Contains rendering logic for displaying exercises:
 - `mod.rs` - `NotationRenderer` trait for output abstraction
 - `ascii.rs` - ASCII art notation renderer
 - `pdf.rs` - PDF notation renderer built on `lopdf` (see [PDF Rendering](#pdf-rendering))
+- `midi.rs` - Standard MIDI File writer (see [MIDI Output](#midi-output)). Pure, no new dependency.
 - `beaming.rs` - Which notes are beamed together and how beams and stems are laid out. Pure, no PDF code.
 - `spelling.rs` - Note spelling and accidentals. Pure, no PDF code.
 - `music_glyphs.rs` - Generated clef, accidental and digit outlines. Do not edit by hand.
@@ -113,6 +114,7 @@ Parsing is in `src/main.rs`. `parse_args` returns `Result<Command, String>` (`Co
 - **`-o` means `--octaves`, and only that.** `--output` has **no short flag**. The two used to share `-o`: the octaves branch matched first, so `-o exercise.pdf` failed to parse as a number and was silently dropped, and the file was written as `exercise.pdf` regardless. `-o` was kept for octaves because every example in the README already used it that way. If you want a short flag for the output file, pick a different letter (not `-o`), and add it to `print_help` too.
 - **Octave values are validated** (`parse_octaves`): a whole number from 1 to 10 (`MAX_OCTAVES`), otherwise an error. If the bad value contains letters, the message says `To name the output file, use --output <value>`.
 - **No two options may share a short flag.** A test (`test_help_text_gives_o_to_octaves_only`) reads the help text and fails if they do. Keep `print_help` in step with the match arms in `parse_args`.
+- **MIDI flags:** `--midi <FILE>` (no short flag, like `--output`), `-t, --tempo <BPM>` (`parse_tempo`, a whole number from `MIN_TEMPO` 20 to `MAX_TEMPO` 300) and `--count-in` (no value). Each arm of `parse_args` sets `used`, the number of arguments it consumed (2 by default, 1 for `--count-in`), so a new flag without a value sets `used = 1`.
 - Flags that need a value report `<flag> requires a value`, naming the long flag.
 
 ### Melody Generation
@@ -195,6 +197,18 @@ Implemented by `Melody` (`src/generator/melody.rs`) and `GenerationRules` (`src/
 - Pure random exercises are often musically awkward
 - Stepwise motion is more natural for sight-reading
 - Users can still get variety within musical constraints
+
+## MIDI Output
+
+Implemented by `MidiRenderer` in `src/presentation/midi.rs`. It writes the bytes by hand, like `pdf.rs` writes operators, so there is no MIDI crate. It reads only domain types. It is **not** a `NotationRenderer`, because that trait returns a `String`; `save_to_file` follows `PdfNotationRenderer`'s precedent. `main` writes the MIDI file after the format output, from the same `measures`, so `--format pdf --midi` gives a PDF and a MIDI file of one exercise.
+
+- **File:** format 0, one track, 96 ticks per quarter note. Timing reuses `TICKS_PER_QUARTER`, `duration_ticks` and `beat_ticks` from `beaming.rs`, so dotted notes and triplets time correctly once the generator produces them.
+- **Events at tick 0:** track name, tempo (`60 000 000 / bpm` microseconds per quarter), time signature and key signature of the first measure, then a program change on channel 0.
+- **Notes:** each measure starts at the total ticks of the measures before it, and each measure is as long as its time signature (not the sum of its notes). At the same tick, note-offs sort before note-ons so a repeated pitch re-attacks.
+- **Count-in** (`--count-in`): one measure of clicks on the General MIDI percussion channel (index 9), one per `beat_ticks` beat, so 6/8 clicks twice. The first click is Hi Wood Block (76), the others Low Wood Block (77). The exercise is shifted later by one measure.
+- **Adding an instrument:** add a variant to `Instrument`, its General MIDI program number in `program()` and its name in `from_name()`. `MidiRenderer::with_instrument` already takes it. A `--instrument` flag would call `from_name` and report an unknown name as an error. `from_name` and `with_instrument` are unused for now, which is why they carry `#[allow(dead_code)]`.
+- **Not handled:** tempo changes, dynamics and velocity shaping (every note is velocity 80), swing, a different time or key signature after the first measure, and ties.
+- **Not played back here:** the tests check the exact bytes, but nothing in this repo plays the file. Open it in GarageBand or QuickTime to listen.
 
 ## PDF Rendering
 

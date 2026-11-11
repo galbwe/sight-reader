@@ -27,6 +27,9 @@ fn main() {
     let num_measures = options.num_measures;
     let output_format = options.output_format;
     let output_file = options.output_file;
+    let midi_file = options.midi_file;
+    let tempo_bpm = options.tempo_bpm;
+    let count_in = options.count_in;
 
     // Create configuration
     let config = GeneratorConfig {
@@ -70,6 +73,17 @@ fn main() {
             std::process::exit(1);
         }
     }
+
+    if let Some(path) = midi_file {
+        let midi_renderer = presentation::MidiRenderer::new()
+            .with_tempo(tempo_bpm)
+            .with_count_in(count_in);
+        if let Err(message) = midi_renderer.save_to_file(&measures, &path) {
+            eprintln!("Error: {}", message);
+            std::process::exit(1);
+        }
+        println!("MIDI saved to: {}", path);
+    }
 }
 
 /// Everything the command line can ask for
@@ -83,6 +97,9 @@ struct Options {
     interval_selection: generator::config::IntervalSelection,
     output_format: String,
     output_file: Option<String>,
+    midi_file: Option<String>,
+    tempo_bpm: u16,
+    count_in: bool,
 }
 
 /// What the command line asked the program to do
@@ -99,6 +116,17 @@ fn flag_value<'a>(args: &'a [String], index: usize, flag: &str) -> Result<&'a st
     args.get(index + 1)
         .map(String::as_str)
         .ok_or_else(|| format!("{} requires a value", flag))
+}
+
+/// Read the speed given to `--tempo` (`-t`): a whole number from `MIN_TEMPO` to `MAX_TEMPO`
+fn parse_tempo(value: &str) -> Result<u16, String> {
+    match value.trim().parse::<u16>() {
+        Ok(bpm) if (MIN_TEMPO..=MAX_TEMPO).contains(&bpm) => Ok(bpm),
+        _ => Err(format!(
+            "--tempo (-t) needs a whole number of beats per minute from {} to {}, but got '{}'.",
+            MIN_TEMPO, MAX_TEMPO, value
+        )),
+    }
 }
 
 /// Read the number of octaves given to `--octaves` (`-o`).
@@ -133,11 +161,16 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
     let mut interval_selection = generator::config::IntervalSelection::default();
     let mut output_format = "ascii".to_string();
     let mut output_file: Option<String> = None;
+    let mut midi_file: Option<String> = None;
+    let mut tempo_bpm = DEFAULT_TEMPO_BPM;
+    let mut count_in = false;
 
     // The first argument is the program name
     let mut i = 1;
     while i < args.len() {
         let flag = args[i].as_str();
+        // How many arguments this flag used: the flag itself, plus its value if it takes one
+        let mut used = 2;
         match flag {
             "--help" | "-h" => return Ok(Command::Help),
             "--measures" | "-m" => {
@@ -154,9 +187,15 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
             "--intervals" | "-i" => interval_selection = parse_intervals(flag_value(args, i, "--intervals")?),
             "--format" | "-f" => output_format = flag_value(args, i, "--format")?.to_string(),
             "--output" => output_file = Some(flag_value(args, i, "--output")?.to_string()),
+            "--midi" => midi_file = Some(flag_value(args, i, "--midi")?.to_string()),
+            "--tempo" | "-t" => tempo_bpm = parse_tempo(flag_value(args, i, "--tempo")?)?,
+            "--count-in" => {
+                count_in = true;
+                used = 1;
+            }
             _ => return Err(format!("unknown argument '{}'", flag)),
         }
-        i += 2;
+        i += used;
     }
 
     let key = Key::new(key_root, key_mode);
@@ -172,11 +211,21 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
         interval_selection,
         output_format,
         output_file,
+        midi_file,
+        tempo_bpm,
+        count_in,
     }))
 }
 
 /// Number of octaves an exercise covers when `--octaves` is not given
 const DEFAULT_OCTAVES: u8 = 2;
+
+/// Slowest and fastest `--tempo`, in beats per minute
+const MIN_TEMPO: u16 = 20;
+const MAX_TEMPO: u16 = 300;
+
+/// Speed of the MIDI file when `--tempo` is not given
+const DEFAULT_TEMPO_BPM: u16 = presentation::midi::DEFAULT_TEMPO_BPM;
 
 /// Most octaves `--octaves` accepts. MIDI spans a little over ten and a half octaves.
 const MAX_OCTAVES: u8 = 10;
@@ -286,12 +335,16 @@ fn print_help() {
     println!("  -i, --intervals <TYPE>   Interval types: steps, steps-skips, large (default: all)");
     println!("  -f, --format <FORMAT>    Output format: ascii, pdf (default: ascii)");
     println!("      --output <FILE>      Output file path (for PDF; default: exercise.pdf)");
+    println!("      --midi <FILE>        Also save the exercise as a MIDI file (works with any format)");
+    println!("  -t, --tempo <BPM>        MIDI speed, 20 to 300 (default: 80)");
+    println!("      --count-in           Start the MIDI file with a measure of metronome clicks");
     println!("  -h, --help               Show this help message");
     println!("\nExamples:");
     println!("  sight-reading -m 8 -k G -o 3");
     println!("  sight-reading --measures 16 --key C# --durations quarter");
     println!("  sight-reading --format pdf --output exercise.pdf -k A -m 4");
     println!("  sight-reading --format pdf --output bass.pdf --clef bass -k F -m 8");
+    println!("  sight-reading -f pdf --output ex.pdf --midi ex.mid -t 90 --count-in");
 }
 
 #[cfg(test)]
@@ -386,6 +439,42 @@ mod tests {
         assert_eq!((options.range.min_midi(), options.range.max_midi()), (60, 83));
         assert_eq!(options.output_format, "ascii");
         assert_eq!(options.output_file, None);
+        assert_eq!(options.midi_file, None);
+        assert_eq!(options.tempo_bpm, 80);
+        assert!(!options.count_in);
+    }
+
+    #[test]
+    fn test_midi_file_works_alongside_pdf_output() {
+        let options = run(&["-f", "pdf", "--output", "ex.pdf", "--midi", "ex.mid"]);
+        assert_eq!(options.midi_file.as_deref(), Some("ex.mid"));
+        assert_eq!(options.output_file.as_deref(), Some("ex.pdf"));
+        assert_eq!(run(&["--midi", "x.mid"]).output_format, "ascii");
+    }
+
+    #[test]
+    fn test_tempo_accepts_whole_numbers_from_20_to_300() {
+        assert_eq!(run(&["-t", "90"]).tempo_bpm, 90);
+        assert_eq!(run(&["--tempo", "20"]).tempo_bpm, 20);
+        assert_eq!(run(&["--tempo", "300"]).tempo_bpm, 300);
+    }
+
+    #[test]
+    fn test_bad_tempos_are_errors() {
+        for bad in ["0", "19", "301", "abc", "", "-5", "90.5"] {
+            let message = error(&["-t", bad]);
+            assert!(message.contains("20 to 300"), "{bad}: {message}");
+        }
+    }
+
+    #[test]
+    fn test_count_in_takes_no_value() {
+        let options = run(&["--count-in", "-m", "8"]);
+        assert!(options.count_in);
+        assert_eq!(options.num_measures, 8);
+        let options = run(&["-m", "8", "--count-in"]);
+        assert!(options.count_in);
+        assert_eq!(options.num_measures, 8);
     }
 
     #[test]
@@ -459,7 +548,7 @@ mod tests {
 
     #[test]
     fn test_missing_values() {
-        for flag in ["-o", "--octaves", "-k", "--key", "-c", "--clef", "-d", "-i", "-f", "-m", "--output"] {
+        for flag in ["-o", "--octaves", "-k", "--key", "-c", "--clef", "-d", "-i", "-f", "-m", "--output", "--midi", "-t", "--tempo"] {
             let message = error(&[flag]);
             assert!(message.contains("requires a value"), "{flag}: {message}");
         }
@@ -469,6 +558,8 @@ mod tests {
     fn test_a_missing_value_names_the_long_flag() {
         assert!(error(&["-o"]).starts_with("--octaves"));
         assert!(error(&["--output"]).starts_with("--output"));
+        assert!(error(&["--midi"]).starts_with("--midi requires a value"));
+        assert!(error(&["-t"]).starts_with("--tempo"));
     }
 
     #[test]

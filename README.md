@@ -17,6 +17,9 @@ cargo run -- -m 8 -k G --format pdf --output exercise.pdf
 
 # 3. The same in bass clef, in F major
 cargo run -- -m 8 -k F --clef bass --format pdf --output bass.pdf
+
+# 4. Also save a MIDI file of the same exercise, with a count-in, to hear it
+cargo run -- -m 8 -k G -f pdf --output exercise.pdf --midi exercise.mid -t 90 --count-in
 ```
 
 Open the PDF in any viewer. Every run makes a new random exercise, so run it again for another one.
@@ -118,6 +121,7 @@ NF#3    NA#3    NG#4    NC#4    ND4    NE4
 - Interval selection (steps, skips, leaps)
 - ASCII art notation display
 - PDF export
+- MIDI export (piano, adjustable tempo, optional count-in)
 - Simple CLI interface
 
 ## Project Structure
@@ -144,6 +148,7 @@ src/
 │   ├── mod.rs
 │   ├── ascii.rs     # ASCII art notation renderer
 │   ├── pdf.rs       # PDF notation renderer
+│   ├── midi.rs      # MIDI file writer
 │   ├── beaming.rs   # Beam grouping and beam geometry
 │   ├── spelling.rs  # Note spelling and accidentals
 │   ├── music_glyphs.rs  # Generated clef, accidental and digit shapes (Bravura)
@@ -174,6 +179,9 @@ cargo run -- -m 8 -k G --format pdf --output exercise.pdf
 
 # The same in bass clef
 cargo run -- -m 8 -k F --clef bass --format pdf --output bass.pdf
+
+# Export the PDF and a MIDI file of the same exercise, at 90 bpm with a one-measure count-in
+cargo run -- -m 8 -k G -f pdf --output exercise.pdf --midi exercise.mid -t 90 --count-in
 ```
 
 ## Options
@@ -186,6 +194,9 @@ cargo run -- -m 8 -k F --clef bass --format pdf --output bass.pdf
 - `-i, --intervals <TYPE>`: Interval types (steps, steps-skips, large, default: all)
 - `-f, --format <FORMAT>`: Output format (ascii, pdf, default: ascii)
 - `--output <FILE>`: Output file path (for PDF export, default: `exercise.pdf`). This option has no short form: `-o` is the octave count.
+- `--midi <FILE>`: Also save the exercise as a MIDI file (acoustic grand piano). It works with any `--format` and uses the same notes as the PDF or ASCII output. No short form.
+- `-t, --tempo <BPM>`: Speed of the MIDI file in quarter notes per minute, 20 to 300 (default: 80). Anything else is an error.
+- `--count-in`: Start the MIDI file with one measure of metronome clicks (the first one accented).
 - `-h, --help`: Show help message
 
 ## Current Status
@@ -198,6 +209,7 @@ The initial version is functional with:
 - PDF export with treble or bass clef, key signature (sharps and flats), time signature, noteheads, stems,
   beams (grouped by the beat), flags, dots, ledger lines, accidentals and key-aware note spelling,
   laid out over several measures and pages
+- MIDI export
 - CLI interface
 
 ## Future Enhancements
@@ -207,7 +219,8 @@ The initial version is functional with:
 - Support for grand staff (treble + bass clefs)
 - PDF export (implemented)
 - Interactive TUI with keyboard shortcuts
-- Audio playback of generated exercises
+- Audio playback of generated exercises (MIDI files can be exported now)
+- More MIDI instruments
 - Web application frontend
 
 ## License
