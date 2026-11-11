@@ -2,12 +2,14 @@
 
 pub mod ascii;
 mod beaming;
+pub mod midi;
 mod music_glyphs;
 mod spelling;
 pub mod pdf;
 pub mod tui;
 
 pub use ascii::AsciiNotationRenderer;
+pub use midi::MidiRenderer;
 pub use pdf::PdfNotationRenderer;
 // pub use tui::TuiRenderer;
 
