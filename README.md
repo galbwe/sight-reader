@@ -122,6 +122,7 @@ NF#3    NA#3    NG#4    NC#4    ND4    NE4
 - ASCII art notation display
 - PDF export
 - MIDI export (piano, adjustable tempo, optional count-in)
+- WAV export (rendered with a SoundFont you supply)
 - Simple CLI interface
 
 ## Project Structure
@@ -196,8 +197,50 @@ cargo run -- -m 8 -k G -f pdf --output exercise.pdf --midi exercise.mid -t 90 --
 - `--output <FILE>`: Output file path (for PDF export, default: `exercise.pdf`). This option has no short form: `-o` is the octave count.
 - `--midi <FILE>`: Also save the exercise as a MIDI file (acoustic grand piano). It works with any `--format` and uses the same notes as the PDF or ASCII output. No short form.
 - `-t, --tempo <BPM>`: Speed of the MIDI file in quarter notes per minute, 20 to 300 (default: 80). Anything else is an error.
-- `--count-in`: Start the MIDI file with one measure of metronome clicks (the first one accented).
+- `--wav <FILE>`: Also save the exercise as a WAV audio file, using the same notes, `--tempo` and `--count-in` as `--midi`. It needs a SoundFont. No short form.
+- `--soundfont <FILE>`: The SoundFont (`.sf2`) for `--wav`. If omitted, the `SOUNDFONT` environment variable is used. No short form.
+- `--count-in`: Start the MIDI/WAV file with one measure of metronome clicks (the first one accented).
 - `-h, --help`: Show help message
+
+## Listening to an exercise
+
+QuickTime cannot open `.mid` files, but it plays `.wav` files, so `--wav` is the easy way to hear an exercise. It needs a SoundFont, a file of instrument sounds. We recommend [GeneralUser GS](https://schristiancollins.com/generaluser.php) (about 27 MB, free to use).
+
+### Setting up GeneralUser GS
+
+There is nothing to install. The SoundFont is a single `.sf2` file that the program reads.
+
+1. Download GeneralUser GS and unzip it (double-click the zip in Finder). The folder inside holds a `.sf2` file, along with documentation and the license.
+2. Move the `.sf2` file somewhere permanent. `~/Library/Audio/Sounds/Banks/` is the usual place on macOS, and GarageBand looks there too. Renaming it to `GeneralUser.sf2` saves quoting a name with spaces:
+
+   ```bash
+   mkdir -p ~/Library/Audio/Sounds/Banks
+   mv ~/Downloads/<unzipped folder>/*.sf2 ~/Library/Audio/Sounds/Banks/GeneralUser.sf2
+   ```
+
+3. Optional: set the `SOUNDFONT` environment variable so you never need `--soundfont`. Use the full path, so it works from any folder:
+
+   ```bash
+   echo 'export SOUNDFONT="$HOME/Library/Audio/Sounds/Banks/GeneralUser.sf2"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+### Making and playing a WAV
+
+With `SOUNDFONT` set:
+
+```bash
+cargo run --release -- --wav ex.wav -t 90 --count-in
+afplay ex.wav
+```
+
+Without it, pass the SoundFont each time:
+
+```bash
+cargo run --release -- --wav ex.wav --soundfont ~/Library/Audio/Sounds/Banks/GeneralUser.sf2 -t 90 --count-in
+```
+
+`--soundfont` takes priority over `SOUNDFONT` when both are given.
 
 ## Current Status
 

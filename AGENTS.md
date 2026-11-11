@@ -54,6 +54,7 @@ Contains rendering logic for displaying exercises:
 - `ascii.rs` - ASCII art notation renderer
 - `pdf.rs` - PDF notation renderer built on `lopdf` (see [PDF Rendering](#pdf-rendering))
 - `midi.rs` - Standard MIDI File writer (see [MIDI Output](#midi-output)). Pure, no new dependency.
+- `wav.rs` - WAV writer: synthesizes the MIDI bytes with `rustysynth` and a SoundFont (see [WAV Output](#wav-output)).
 - `beaming.rs` - Which notes are beamed together and how beams and stems are laid out. Pure, no PDF code.
 - `spelling.rs` - Note spelling and accidentals. Pure, no PDF code.
 - `music_glyphs.rs` - Generated clef, accidental and digit outlines. Do not edit by hand.
@@ -115,6 +116,7 @@ Parsing is in `src/main.rs`. `parse_args` returns `Result<Command, String>` (`Co
 - **Octave values are validated** (`parse_octaves`): a whole number from 1 to 10 (`MAX_OCTAVES`), otherwise an error. If the bad value contains letters, the message says `To name the output file, use --output <value>`.
 - **No two options may share a short flag.** A test (`test_help_text_gives_o_to_octaves_only`) reads the help text and fails if they do. Keep `print_help` in step with the match arms in `parse_args`.
 - **MIDI flags:** `--midi <FILE>` (no short flag, like `--output`), `-t, --tempo <BPM>` (`parse_tempo`, a whole number from `MIN_TEMPO` 20 to `MAX_TEMPO` 300) and `--count-in` (no value). Each arm of `parse_args` sets `used`, the number of arguments it consumed (2 by default, 1 for `--count-in`), so a new flag without a value sets `used = 1`.
+- **WAV flags:** `--wav <FILE>` and `--soundfont <FILE>` (no short flags). `--wav` also honours `--tempo` and `--count-in`. `resolve_soundfont(flag, env)` is pure: the flag wins, then the `SOUNDFONT` environment variable, otherwise an error. `main` reads the environment only when `--wav` was given.
 - Flags that need a value report `<flag> requires a value`, naming the long flag.
 
 ### Melody Generation
@@ -208,7 +210,20 @@ Implemented by `MidiRenderer` in `src/presentation/midi.rs`. It writes the bytes
 - **Count-in** (`--count-in`): one measure of clicks on the General MIDI percussion channel (index 9), one per `beat_ticks` beat, so 6/8 clicks twice. The first click is Hi Wood Block (76), the others Low Wood Block (77). The exercise is shifted later by one measure.
 - **Adding an instrument:** add a variant to `Instrument`, its General MIDI program number in `program()` and its name in `from_name()`. `MidiRenderer::with_instrument` already takes it. A `--instrument` flag would call `from_name` and report an unknown name as an error. `from_name` and `with_instrument` are unused for now, which is why they carry `#[allow(dead_code)]`.
 - **Not handled:** tempo changes, dynamics and velocity shaping (every note is velocity 80), swing, a different time or key signature after the first measure, and ties.
-- **Not played back here:** the tests check the exact bytes, but nothing in this repo plays the file. Open it in GarageBand or QuickTime to listen.
+- **Not played back here:** the tests check the exact bytes, but nothing in this repo plays the file. Open it in GarageBand or run `timidity -Od file.mid` to listen. QuickTime cannot play MIDI files; use `--wav` for that.
+
+## WAV Output
+
+Implemented by `WavRenderer` in `src/presentation/wav.rs`. It is **not** a `NotationRenderer` (that trait returns a `String`), like `MidiRenderer`. `main` writes the WAV after the MIDI file, from the same `measures` and the same `MidiRenderer` settings (`--tempo`, `--count-in`), so `--midi` and `--wav` give identical music.
+
+- **Synthesis:** the `rustysynth` crate (1.3.x, pure Rust, MIT), the only dependency added. `WavRenderer` takes the bytes from `MidiRenderer::to_bytes()` and reads them with `MidiFile::new(&mut Cursor::new(bytes))`, so no temporary MIDI file is written. `MidiFileSequencer` renders stereo `f32` in one call at 44.1 kHz.
+- **Hand-written WAV:** `wav_bytes` writes the 44-byte header and interleaved 16-bit little-endian PCM, like `midi.rs` and `pdf.rs` write their formats. There is no `hound`. `to_i16` clamps to -1..1.
+- **Normalization:** if the peak is above 1.0 (many notes at once), both channels are scaled down to 1.0. Quieter audio is left alone.
+- **Release tail:** `get_length()` ends at the last note-off, so `RELEASE_TAIL_SECONDS` (1.5) is rendered after it to let the last note ring out.
+- **SoundFont lookup:** `--soundfont <FILE>`, else the `SOUNDFONT` environment variable, else an error. Nothing is bundled or downloaded. Recommended: **GeneralUser GS** (about 27 MB, free license that allows use in software and commercial use, includes a GM drum kit for the count-in wood blocks). TimGM6mb is smaller but GPL-2, so do not bundle it.
+- **Errors:** `cannot read SoundFont <path>: ...` and `<path> is not a valid SoundFont: ...`.
+- **Tests:** header, interleaving, clamping, normalization and empty input are exact. The end-to-end test needs a real SoundFont and is `#[ignore]`d: `SOUNDFONT=GeneralUser.sf2 cargo test -- --ignored`.
+- **Not handled:** choosing the sample rate or bit depth, MP3/OGG output, bundling a default SoundFont, and reverb/chorus settings (rustysynth's defaults are used).
 
 ## PDF Rendering
 
