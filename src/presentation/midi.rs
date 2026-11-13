@@ -122,7 +122,9 @@ impl MidiRenderer {
     /// The whole file as bytes
     pub fn to_bytes(&self, measures: &[Measure]) -> Vec<u8> {
         let first = measures.first();
-        let time = first.map(|m| m.time_signature).unwrap_or_else(TimeSignature::common_time);
+        let time = first
+            .map(|m| m.time_signature)
+            .unwrap_or_else(TimeSignature::common_time);
 
         let mut track = Vec::new();
         self.push_header_events(&mut track, first);
@@ -159,7 +161,8 @@ impl MidiRenderer {
 
     /// Write the file to disk
     pub fn save_to_file(&self, measures: &[Measure], path: &str) -> Result<(), String> {
-        std::fs::write(path, self.to_bytes(measures)).map_err(|e| format!("cannot write {}: {}", path, e))
+        std::fs::write(path, self.to_bytes(measures))
+            .map_err(|e| format!("cannot write {}: {}", path, e))
     }
 
     /// Meta events and the program change, all at tick 0
@@ -174,15 +177,27 @@ impl MidiRenderer {
             let time = measure.time_signature;
             meta(
                 META_TIME_SIGNATURE,
-                &[time.numerator, denominator_power(time.denominator), CLOCKS_PER_CLICK, THIRTY_SECONDS_PER_QUARTER],
+                &[
+                    time.numerator,
+                    denominator_power(time.denominator),
+                    CLOCKS_PER_CLICK,
+                    THIRTY_SECONDS_PER_QUARTER,
+                ],
             );
             let mode = match measure.key_signature.mode {
                 KeyMode::Major => 0,
                 KeyMode::Minor => 1,
             };
-            meta(META_KEY_SIGNATURE, &[measure.key_signature.accidental_count as i8 as u8, mode]);
+            meta(
+                META_KEY_SIGNATURE,
+                &[measure.key_signature.accidental_count as i8 as u8, mode],
+            );
         }
-        track.extend([0, STATUS_PROGRAM_CHANGE | NOTE_CHANNEL, self.instrument.program()]);
+        track.extend([
+            0,
+            STATUS_PROGRAM_CHANGE | NOTE_CHANNEL,
+            self.instrument.program(),
+        ]);
     }
 }
 
@@ -218,10 +233,22 @@ fn count_in_events(time: &TimeSignature) -> Vec<TimedEvent> {
     (0..measure_ticks(time) / beat)
         .flat_map(|n| {
             let tick = n * beat;
-            let key = if n == 0 { ACCENT_CLICK_NOTE } else { CLICK_NOTE };
+            let key = if n == 0 {
+                ACCENT_CLICK_NOTE
+            } else {
+                CLICK_NOTE
+            };
             [
-                TimedEvent { tick, order: 1, bytes: vec![STATUS_NOTE_ON | PERCUSSION_CHANNEL, key, CLICK_VELOCITY] },
-                TimedEvent { tick: tick + CLICK_TICKS, order: 0, bytes: vec![STATUS_NOTE_OFF | PERCUSSION_CHANNEL, key, 0] },
+                TimedEvent {
+                    tick,
+                    order: 1,
+                    bytes: vec![STATUS_NOTE_ON | PERCUSSION_CHANNEL, key, CLICK_VELOCITY],
+                },
+                TimedEvent {
+                    tick: tick + CLICK_TICKS,
+                    order: 0,
+                    bytes: vec![STATUS_NOTE_OFF | PERCUSSION_CHANNEL, key, 0],
+                },
             ]
         })
         .collect()
@@ -238,7 +265,11 @@ fn note_events(measures: &[Measure], start_tick: u32) -> Vec<TimedEvent> {
             events.push(TimedEvent {
                 tick: onset,
                 order: 1,
-                bytes: vec![STATUS_NOTE_ON | NOTE_CHANNEL, note.midi_number, NOTE_VELOCITY],
+                bytes: vec![
+                    STATUS_NOTE_ON | NOTE_CHANNEL,
+                    note.midi_number,
+                    NOTE_VELOCITY,
+                ],
             });
             events.push(TimedEvent {
                 tick: onset + length,
@@ -259,13 +290,27 @@ mod tests {
     use crate::domain::{KeySignature, Note, NoteDuration};
 
     fn measure(number: u32, notes: &[(u8, NoteDuration)]) -> Measure {
-        let mut m = Measure::new(number, TimeSignature::common_time(), KeySignature::new(60, KeyMode::Major));
-        m.notes = notes.iter().map(|&(pitch, duration)| Note::new(pitch, duration)).collect();
+        let mut m = Measure::new(
+            number,
+            TimeSignature::common_time(),
+            KeySignature::new(60, KeyMode::Major),
+        );
+        m.notes = notes
+            .iter()
+            .map(|&(pitch, duration)| Note::new(pitch, duration))
+            .collect();
         m
     }
 
     fn c_d_e() -> Measure {
-        measure(1, &[(60, NoteDuration::Quarter), (62, NoteDuration::Half), (64, NoteDuration::Quarter)])
+        measure(
+            1,
+            &[
+                (60, NoteDuration::Quarter),
+                (62, NoteDuration::Half),
+                (64, NoteDuration::Quarter),
+            ],
+        )
     }
 
     /// The track bytes after the 22-byte file and track headers
@@ -329,7 +374,9 @@ mod tests {
 
     #[test]
     fn test_track_length_matches_the_chunk() {
-        let bytes = MidiRenderer::new().with_count_in(true).to_bytes(&[c_d_e(), c_d_e()]);
+        let bytes = MidiRenderer::new()
+            .with_count_in(true)
+            .to_bytes(&[c_d_e(), c_d_e()]);
         let length = u32::from_be_bytes(bytes[18..22].try_into().unwrap()) as usize;
         assert_eq!(length, bytes.len() - 22);
         assert_eq!(&bytes[bytes.len() - 3..], &[META, META_END_OF_TRACK, 0]);
@@ -349,8 +396,12 @@ mod tests {
         let mut m = c_d_e();
         m.key_signature = KeySignature::new(58, KeyMode::Major); // B flat: two flats
         let bytes = MidiRenderer::new().to_bytes(&[m]);
-        assert!(track(&bytes).windows(7).any(|w| w == [META, META_TIME_SIGNATURE, 4, 4, 2, 24, 8]));
-        assert!(track(&bytes).windows(4).any(|w| w == [META, META_KEY_SIGNATURE, 2, 0xFE]));
+        assert!(track(&bytes)
+            .windows(7)
+            .any(|w| w == [META, META_TIME_SIGNATURE, 4, 4, 2, 24, 8]));
+        assert!(track(&bytes)
+            .windows(4)
+            .any(|w| w == [META, META_KEY_SIGNATURE, 2, 0xFE]));
     }
 
     #[test]
@@ -360,7 +411,14 @@ mod tests {
         let off = STATUS_NOTE_OFF;
         assert_eq!(
             channel_events(&bytes),
-            vec![(0, on, 60), (96, off, 60), (96, on, 62), (288, off, 62), (288, on, 64), (384, off, 64)]
+            vec![
+                (0, on, 60),
+                (96, off, 60),
+                (96, on, 62),
+                (288, off, 62),
+                (288, on, 64),
+                (384, off, 64)
+            ]
         );
     }
 
@@ -385,14 +443,21 @@ mod tests {
             .map(|&(t, _, k)| (t, k))
             .collect();
         assert_eq!(clicks, vec![(0, 76), (96, 77), (192, 77), (288, 77)]);
-        let first_note = events.iter().find(|&&(_, s, _)| s == STATUS_NOTE_ON).unwrap();
+        let first_note = events
+            .iter()
+            .find(|&&(_, s, _)| s == STATUS_NOTE_ON)
+            .unwrap();
         assert_eq!(first_note.0, 384);
     }
 
     #[test]
     fn test_compound_time_count_in_clicks_once_per_dotted_beat() {
         let clicks = count_in_events(&TimeSignature::six_eight());
-        let ons: Vec<u32> = clicks.iter().filter(|e| e.order == 1).map(|e| e.tick).collect();
+        let ons: Vec<u32> = clicks
+            .iter()
+            .filter(|e| e.order == 1)
+            .map(|e| e.tick)
+            .collect();
         assert_eq!(ons, vec![0, 144]);
         assert_eq!(measure_ticks(&TimeSignature::six_eight()), 288);
     }
@@ -402,12 +467,17 @@ mod tests {
         let bytes = MidiRenderer::new().to_bytes(&[c_d_e()]);
         let program = Instrument::AcousticGrandPiano.program();
         assert_eq!(program, 0);
-        assert!(track(&bytes).windows(3).any(|w| w == [0, STATUS_PROGRAM_CHANGE, program]));
+        assert!(track(&bytes)
+            .windows(3)
+            .any(|w| w == [0, STATUS_PROGRAM_CHANGE, program]));
     }
 
     #[test]
     fn test_instrument_names() {
-        assert_eq!(Instrument::from_name(" Piano "), Some(Instrument::AcousticGrandPiano));
+        assert_eq!(
+            Instrument::from_name(" Piano "),
+            Some(Instrument::AcousticGrandPiano)
+        );
         assert_eq!(Instrument::from_name("kazoo"), None);
     }
 
@@ -439,7 +509,9 @@ mod tests {
 
     #[test]
     fn test_save_to_file_reports_errors() {
-        let error = MidiRenderer::new().save_to_file(&[], "/nonexistent/dir/x.mid").unwrap_err();
+        let error = MidiRenderer::new()
+            .save_to_file(&[], "/nonexistent/dir/x.mid")
+            .unwrap_err();
         assert!(error.contains("/nonexistent/dir/x.mid"), "{error}");
     }
 }

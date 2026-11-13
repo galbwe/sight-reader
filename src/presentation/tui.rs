@@ -1,6 +1,6 @@
 //! TUI renderer (stub for future implementation)
 
-use crate::domain::{Measure, Note, KeySignature};
+use crate::domain::{KeySignature, Measure, Note};
 
 /// TUI renderer for terminal UI
 pub struct TuiRenderer;

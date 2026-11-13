@@ -70,7 +70,9 @@ impl Melody {
             None => 0,
         };
 
-        let moves = self.rules.candidate_moves(&self.scale, current, previous_move);
+        let moves = self
+            .rules
+            .candidate_moves(&self.scale, current, previous_move);
         match GenerationRules::pick_move(&moves, rand::random::<u32>()) {
             Some(chosen) => self.scale[(current as i32 + chosen.steps) as usize],
             None => last,
@@ -82,13 +84,14 @@ impl Melody {
         self.scale
             .iter()
             .position(|&note| note == midi)
-            .or_else(|| {
-                (0..self.scale.len()).min_by_key(|&index| self.scale[index].abs_diff(midi))
-            })
+            .or_else(|| (0..self.scale.len()).min_by_key(|&index| self.scale[index].abs_diff(midi)))
     }
 
     fn nearest_scale_note(&self, midi: u8) -> Option<u8> {
-        self.scale.iter().copied().min_by_key(|note| note.abs_diff(midi))
+        self.scale
+            .iter()
+            .copied()
+            .min_by_key(|note| note.abs_diff(midi))
     }
 }
 
@@ -98,8 +101,19 @@ mod tests {
     use crate::domain::KeyMode;
     use crate::generator::config::IntervalSelection;
 
-    fn melody_in(root: u8, mode: KeyMode, min: u8, max: u8, selection: &IntervalSelection) -> Melody {
-        Melody::new(&Key::new(root, mode), min, max, GenerationRules::new(selection))
+    fn melody_in(
+        root: u8,
+        mode: KeyMode,
+        min: u8,
+        max: u8,
+        selection: &IntervalSelection,
+    ) -> Melody {
+        Melody::new(
+            &Key::new(root, mode),
+            min,
+            max,
+            GenerationRules::new(selection),
+        )
     }
 
     /// A long random melody
@@ -115,7 +129,10 @@ mod tests {
     #[test]
     fn test_scale_notes_c_major() {
         let key = Key::c_major();
-        assert_eq!(scale_notes(&key, 60, 72), vec![60, 62, 64, 65, 67, 69, 71, 72]);
+        assert_eq!(
+            scale_notes(&key, 60, 72),
+            vec![60, 62, 64, 65, 67, 69, 71, 72]
+        );
     }
 
     #[test]
@@ -159,7 +176,10 @@ mod tests {
             let key = Key::new(root, KeyMode::Major);
             let melody = melody_in(root, KeyMode::Major, 60, 83, &all);
             for note in walk(&melody, 300) {
-                assert!(key.contains_note(note), "root {root}: note {note} is not in the key");
+                assert!(
+                    key.contains_note(note),
+                    "root {root}: note {note} is not in the key"
+                );
             }
         }
     }
@@ -203,7 +223,10 @@ mod tests {
         let notes = walk(&melody, 600);
         let lowest = *notes.iter().min().unwrap();
         let highest = *notes.iter().max().unwrap();
-        assert!(highest - lowest >= 14, "range used was only {lowest}..{highest}");
+        assert!(
+            highest - lowest >= 14,
+            "range used was only {lowest}..{highest}"
+        );
     }
 
     #[test]
@@ -245,7 +268,10 @@ mod tests {
                 (a - b).abs() <= 2
             })
             .count();
-        assert!(steps * 100 / 999 >= 60, "only {steps} of 999 moves were steps or thirds");
+        assert!(
+            steps * 100 / 999 >= 60,
+            "only {steps} of 999 moves were steps or thirds"
+        );
     }
 
     #[test]

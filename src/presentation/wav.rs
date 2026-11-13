@@ -28,7 +28,10 @@ fn to_i16(sample: f32) -> i16 {
 
 /// Scale both channels down so the peak is 1.0, if it is above that. Quieter audio is untouched.
 fn normalize(left: &mut [f32], right: &mut [f32]) {
-    let peak = left.iter().chain(right.iter()).fold(0.0f32, |p, s| p.max(s.abs()));
+    let peak = left
+        .iter()
+        .chain(right.iter())
+        .fold(0.0f32, |p, s| p.max(s.abs()));
     if peak > 1.0 {
         for sample in left.iter_mut().chain(right.iter_mut()) {
             *sample /= peak;
@@ -69,12 +72,16 @@ pub struct WavRenderer {
 
 impl WavRenderer {
     pub fn new(midi: MidiRenderer, soundfont_path: &str) -> Self {
-        WavRenderer { midi, soundfont_path: soundfont_path.to_string() }
+        WavRenderer {
+            midi,
+            soundfont_path: soundfont_path.to_string(),
+        }
     }
 
     fn load_soundfont(&self) -> Result<Arc<SoundFont>, String> {
         let path = &self.soundfont_path;
-        let file = File::open(path).map_err(|e| format!("cannot read SoundFont {}: {}", path, e))?;
+        let file =
+            File::open(path).map_err(|e| format!("cannot read SoundFont {}: {}", path, e))?;
         let soundfont = SoundFont::new(&mut BufReader::new(file))
             .map_err(|e| format!("{} is not a valid SoundFont: {}", path, e))?;
         Ok(Arc::new(soundfont))
@@ -94,7 +101,8 @@ impl WavRenderer {
         let mut sequencer = MidiFileSequencer::new(synthesizer);
         sequencer.play(&midi_file, false);
 
-        let frames = ((midi_file.get_length() + RELEASE_TAIL_SECONDS) * SAMPLE_RATE as f64) as usize;
+        let frames =
+            ((midi_file.get_length() + RELEASE_TAIL_SECONDS) * SAMPLE_RATE as f64) as usize;
         let mut left = vec![0f32; frames];
         let mut right = vec![0f32; frames];
         sequencer.render(&mut left, &mut right);
@@ -221,7 +229,10 @@ mod tests {
         let frames = (u32_at(&bytes, 40) / 4) as f64;
         // 2 measures of 4/4 at 120 BPM = 4 seconds, plus the release tail
         let expected = (4.0 + RELEASE_TAIL_SECONDS) * SAMPLE_RATE as f64;
-        assert!((frames - expected).abs() < SAMPLE_RATE as f64 * 0.5, "{frames} vs {expected}");
+        assert!(
+            (frames - expected).abs() < SAMPLE_RATE as f64 * 0.5,
+            "{frames} vs {expected}"
+        );
         assert!(bytes[44..].chunks(2).any(|c| c != [0, 0]));
     }
 }

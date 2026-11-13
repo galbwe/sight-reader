@@ -153,7 +153,12 @@ pub fn beam_groups(notes: &[Note], time: &TimeSignature) -> Vec<BeamGroup> {
         while j < notes.len() && info[j].1 > 0 && info[j].0 / beat == beat_index {
             j += 1;
         }
-        runs.push(Run { start: i, end: j, first_beat: beat_index, last_beat: beat_index });
+        runs.push(Run {
+            start: i,
+            end: j,
+            first_beat: beat_index,
+            last_beat: beat_index,
+        });
         i = j;
     }
 
@@ -163,7 +168,9 @@ pub fn beam_groups(notes: &[Note], time: &TimeSignature) -> Vec<BeamGroup> {
             let joins_previous = merged.last().is_some_and(|previous| {
                 previous.end == run.start
                     && previous.first_beat / span == run.first_beat / span
-                    && info[previous.start..run.end].iter().all(|&(_, flags)| flags == 1)
+                    && info[previous.start..run.end]
+                        .iter()
+                        .all(|&(_, flags)| flags == 1)
             });
             if joins_previous {
                 let previous = merged.last_mut().expect("checked above");
@@ -178,7 +185,10 @@ pub fn beam_groups(notes: &[Note], time: &TimeSignature) -> Vec<BeamGroup> {
 
     runs.into_iter()
         .filter(|run| run.end - run.start >= 2)
-        .map(|run| BeamGroup { start: run.start, end: run.end })
+        .map(|run| BeamGroup {
+            start: run.start,
+            end: run.end,
+        })
         .collect()
 }
 
@@ -192,8 +202,16 @@ pub fn group_stems_up(positions: &[i32]) -> bool {
     if below != above {
         return below > above;
     }
-    let furthest_below = positions.iter().filter(|&&p| p < MIDDLE_LINE_STEPS).map(|p| MIDDLE_LINE_STEPS - p).max();
-    let furthest_above = positions.iter().filter(|&&p| p > MIDDLE_LINE_STEPS).map(|p| p - MIDDLE_LINE_STEPS).max();
+    let furthest_below = positions
+        .iter()
+        .filter(|&&p| p < MIDDLE_LINE_STEPS)
+        .map(|p| MIDDLE_LINE_STEPS - p)
+        .max();
+    let furthest_above = positions
+        .iter()
+        .filter(|&&p| p > MIDDLE_LINE_STEPS)
+        .map(|p| p - MIDDLE_LINE_STEPS)
+        .max();
     furthest_below.unwrap_or(0) > furthest_above.unwrap_or(0)
 }
 
@@ -266,7 +284,9 @@ pub struct BeamedGroup {
 /// Shortest stem a note with `beams` beams may have, measured from its notehead centre to the
 /// outer edge of the outer beam. Every extra beam beyond two needs another beam's worth of room.
 pub fn min_stem_length(beams: u8) -> f32 {
-    let inner = INNERMOST_BEAM_CENTER + BEAM_THICKNESS / 2.0 + (beams.max(1) - 1) as f32 * (BEAM_THICKNESS + BEAM_GAP);
+    let inner = INNERMOST_BEAM_CENTER
+        + BEAM_THICKNESS / 2.0
+        + (beams.max(1) - 1) as f32 * (BEAM_THICKNESS + BEAM_GAP);
     MIN_BEAMED_STEM.max(inner)
 }
 
@@ -287,18 +307,30 @@ fn target_slant(notes: &[BeamNote], stem_x: &[f32], up: bool) -> f32 {
     let direction = if up { 1.0 } else { -1.0 };
     let closer_to_beam = |note: &BeamNote| direction * note.y;
     let outer_best = closer_to_beam(first).max(closer_to_beam(last));
-    let concave = notes[1..notes.len() - 1].iter().any(|note| closer_to_beam(note) > outer_best + 1e-4);
+    let concave = notes[1..notes.len() - 1]
+        .iter()
+        .any(|note| closer_to_beam(note) > outer_best + 1e-4);
     if concave {
         return 0.0;
     }
 
-    let rises = notes.windows(2).filter(|w| w[1].position > w[0].position).count();
-    let falls = notes.windows(2).filter(|w| w[1].position < w[0].position).count();
+    let rises = notes
+        .windows(2)
+        .filter(|w| w[1].position > w[0].position)
+        .count();
+    let falls = notes
+        .windows(2)
+        .filter(|w| w[1].position < w[0].position)
+        .count();
     if (steps > 0 && falls > rises) || (steps < 0 && rises > falls) {
         return 0.0;
     }
 
-    let mut limit = if notes.len() >= 4 { MAX_SLANT_LONG_GROUP } else { MAX_SLANT };
+    let mut limit = if notes.len() >= 4 {
+        MAX_SLANT_LONG_GROUP
+    } else {
+        MAX_SLANT
+    };
     let average_gap = (stem_x[stem_x.len() - 1] - stem_x[0]) / (notes.len() - 1) as f32;
     if average_gap < CLOSE_NOTES_SPACING {
         limit = limit.min(CLOSE_NOTES_MAX_SLANT);
@@ -336,7 +368,13 @@ pub fn layout_group(notes: &[BeamNote], metrics: &BeamMetrics) -> BeamedGroup {
     let span = stem_x[stem_x.len() - 1] - x_first;
     let fraction: Vec<f32> = stem_x
         .iter()
-        .map(|&x| if span > 0.0 { (x - x_first) / span } else { 0.0 })
+        .map(|&x| {
+            if span > 0.0 {
+                (x - x_first) / span
+            } else {
+                0.0
+            }
+        })
         .collect();
 
     let target_y = target_slant(notes, &stem_x, up);
@@ -401,7 +439,11 @@ pub fn layout_group(notes: &[BeamNote], metrics: &BeamMetrics) -> BeamedGroup {
 
     // Position of the outer edge of the outer beam at any x
     let tip_y_at = |x: f32| -> f32 {
-        let t = if span > 0.0 { (x - x_first) / span } else { 0.0 };
+        let t = if span > 0.0 {
+            (x - x_first) / span
+        } else {
+            0.0
+        };
         d * (first_tip + (last_tip - first_tip) * t)
     };
 
@@ -548,7 +590,14 @@ mod tests {
     #[test]
     fn test_eighths_never_beam_across_the_middle_of_a_four_four_bar() {
         // Eighth on beat 2 and eighth on beat 3 stay apart
-        let notes = vec![note(Quarter), note(Eighth), note(Eighth), note(Eighth), note(Eighth), note(Quarter)];
+        let notes = vec![
+            note(Quarter),
+            note(Eighth),
+            note(Eighth),
+            note(Eighth),
+            note(Eighth),
+            note(Quarter),
+        ];
         let found = groups(&notes, 4, 4);
         assert_eq!(found, vec![(1, 3), (3, 5)]);
     }
@@ -588,20 +637,39 @@ mod tests {
     #[test]
     fn test_a_shorter_note_stops_eighths_from_merging_across_beats() {
         // Beat 1: two eighths. Beat 2: eighth plus two sixteenths. They stay in separate groups.
-        let notes = vec![note(Eighth), note(Eighth), note(Eighth), note(Sixteenth), note(Sixteenth)];
+        let notes = vec![
+            note(Eighth),
+            note(Eighth),
+            note(Eighth),
+            note(Sixteenth),
+            note(Sixteenth),
+        ];
         assert_eq!(groups(&notes, 4, 4), vec![(0, 2), (2, 5)]);
     }
 
     #[test]
     fn test_longer_notes_split_groups() {
         // 8th 8th | quarter | 8th 8th | quarter
-        let notes = vec![note(Eighth), note(Eighth), note(Quarter), note(Eighth), note(Eighth), note(Quarter)];
+        let notes = vec![
+            note(Eighth),
+            note(Eighth),
+            note(Quarter),
+            note(Eighth),
+            note(Eighth),
+            note(Quarter),
+        ];
         assert_eq!(groups(&notes, 4, 4), vec![(0, 2), (3, 5)]);
     }
 
     #[test]
     fn test_a_lone_eighth_keeps_its_flag() {
-        let notes = vec![note(Quarter), note(Eighth), note(Quarter), note(Quarter), note(Eighth)];
+        let notes = vec![
+            note(Quarter),
+            note(Eighth),
+            note(Quarter),
+            note(Quarter),
+            note(Eighth),
+        ];
         // The eighth at the start of beat 2 is alone, and the last eighth falls in beat 5
         assert!(groups(&notes, 4, 4).is_empty());
     }
@@ -624,13 +692,23 @@ mod tests {
 
     #[test]
     fn test_dotted_eighth_and_sixteenth_beam_together() {
-        let notes = vec![dotted(Eighth), note(Sixteenth), dotted(Eighth), note(Sixteenth)];
+        let notes = vec![
+            dotted(Eighth),
+            note(Sixteenth),
+            dotted(Eighth),
+            note(Sixteenth),
+        ];
         assert_eq!(groups(&notes, 4, 4), vec![(0, 2), (2, 4)]);
     }
 
     #[test]
     fn test_sixteenth_before_a_dotted_eighth() {
-        let notes = vec![note(Sixteenth), dotted(Eighth), note(Sixteenth), dotted(Eighth)];
+        let notes = vec![
+            note(Sixteenth),
+            dotted(Eighth),
+            note(Sixteenth),
+            dotted(Eighth),
+        ];
         // 16th + dotted eighth fill a beat, and so do the next two, but a dotted eighth ends at
         // 1.0 only if started at 0.25: 0.25 + 0.75 = 1.0
         assert_eq!(groups(&notes, 4, 4), vec![(0, 2), (2, 4)]);
@@ -674,7 +752,7 @@ mod tests {
     #[test]
     fn test_stub_direction_follows_the_beat() {
         let s = TICKS_PER_QUARTER / 4; // a sixteenth
-        // First sixteenth of an eighth (before a dotted eighth): points right
+                                       // First sixteenth of an eighth (before a dotted eighth): points right
         assert!(stub_points_right(0, 2));
         // Sixteenth on the second half of its eighth (after a dotted eighth): points left
         assert!(!stub_points_right(3 * s, 2));
@@ -688,7 +766,11 @@ mod tests {
 
     // ----- geometry -----
 
-    const METRICS: BeamMetrics = BeamMetrics { notehead_half_width: 0.63, stem_anchor_dy: 0.126, stem_width: 0.12 };
+    const METRICS: BeamMetrics = BeamMetrics {
+        notehead_half_width: 0.63,
+        stem_anchor_dy: 0.126,
+        stem_width: 0.12,
+    };
 
     fn beam_note(index: usize, position: i32, beams: u8) -> BeamNote {
         BeamNote {
@@ -701,7 +783,11 @@ mod tests {
     }
 
     fn eighth_group(positions: &[i32]) -> Vec<BeamNote> {
-        positions.iter().enumerate().map(|(i, &p)| beam_note(i, p, 1)).collect()
+        positions
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| beam_note(i, p, 1))
+            .collect()
     }
 
     fn outer_beam(group: &BeamedGroup) -> Beam {
@@ -725,25 +811,43 @@ mod tests {
 
     #[test]
     fn test_stems_end_on_the_beam() {
-        for positions in [vec![0, 1, 2, 3], vec![8, 7, 6], vec![2, 5, 1, 4], vec![-2, 0]] {
+        for positions in [
+            vec![0, 1, 2, 3],
+            vec![8, 7, 6],
+            vec![2, 5, 1, 4],
+            vec![-2, 0],
+        ] {
             let group = layout_group(&eighth_group(&positions), &METRICS);
             let beam = outer_beam(&group);
             for stem in &group.stems {
                 let t = (stem.x - beam.x1) / (beam.x2 - beam.x1);
                 let beam_y = beam.y1 + (beam.y2 - beam.y1) * t;
-                assert!((stem.end_y - beam_y).abs() < 1e-3, "{positions:?}: stem ends at {} beam at {beam_y}", stem.end_y);
+                assert!(
+                    (stem.end_y - beam_y).abs() < 1e-3,
+                    "{positions:?}: stem ends at {} beam at {beam_y}",
+                    stem.end_y
+                );
             }
         }
     }
 
     #[test]
     fn test_every_stem_is_long_enough() {
-        for positions in [vec![0, 1, 2, 3], vec![8, 7, 6, 5], vec![2, 5, 1, 4], vec![-4, -3], vec![11, 12, 10]] {
+        for positions in [
+            vec![0, 1, 2, 3],
+            vec![8, 7, 6, 5],
+            vec![2, 5, 1, 4],
+            vec![-4, -3],
+            vec![11, 12, 10],
+        ] {
             let notes = eighth_group(&positions);
             let group = layout_group(&notes, &METRICS);
             for (note, stem) in notes.iter().zip(&group.stems) {
                 let length = (stem.end_y - note.y).abs();
-                assert!(length >= 3.25 - 1e-3, "{positions:?}: stem of {length} spaces");
+                assert!(
+                    length >= 3.25 - 1e-3,
+                    "{positions:?}: stem of {length} spaces"
+                );
             }
         }
     }
@@ -766,7 +870,14 @@ mod tests {
 
     #[test]
     fn test_beam_ends_sit_hang_or_straddle() {
-        for positions in [vec![0, 0], vec![1, 1], vec![1, 3], vec![2, 4, 5], vec![7, 6], vec![6, 5, 4, 3]] {
+        for positions in [
+            vec![0, 0],
+            vec![1, 1],
+            vec![1, 3],
+            vec![2, 4, 5],
+            vec![7, 6],
+            vec![6, 5, 4, 3],
+        ] {
             let group = layout_group(&eighth_group(&positions), &METRICS);
             let d = if group.up { 1.0 } else { -1.0 };
             let beam = outer_beam(&group);
@@ -851,7 +962,12 @@ mod tests {
         assert!(up.up && !down.up);
         for (a, b) in up.stems.iter().zip(&down.stems) {
             // end_y reflects around y = 2
-            assert!(((a.end_y - 2.0) + (b.end_y - 2.0)).abs() < 1e-4, "{} vs {}", a.end_y, b.end_y);
+            assert!(
+                ((a.end_y - 2.0) + (b.end_y - 2.0)).abs() < 1e-4,
+                "{} vs {}",
+                a.end_y,
+                b.end_y
+            );
         }
     }
 
@@ -896,7 +1012,10 @@ mod tests {
         positions
             .iter()
             .enumerate()
-            .map(|(i, &p)| BeamNote { onset: i as u32 * 24, ..beam_note(i, p, 2) })
+            .map(|(i, &p)| BeamNote {
+                onset: i as u32 * 24,
+                ..beam_note(i, p, 2)
+            })
             .collect()
     }
 
@@ -946,7 +1065,10 @@ mod tests {
                 let t = (stem.x - inner.x1) / (inner.x2 - inner.x1);
                 let edge = inner.y1 + (inner.y2 - inner.y1) * t;
                 let centre = edge + inner.toward_heads * BEAM_THICKNESS / 2.0;
-                assert!((centre - note.y).abs() >= INNERMOST_BEAM_CENTER - 1e-3, "{beams} beams: centre {centre}");
+                assert!(
+                    (centre - note.y).abs() >= INNERMOST_BEAM_CENTER - 1e-3,
+                    "{beams} beams: centre {centre}"
+                );
             }
         }
     }
@@ -955,29 +1077,50 @@ mod tests {
     fn test_sixteenth_after_dotted_eighth_gets_a_stub_pointing_back() {
         // Dotted eighth (1 beam), sixteenth (2 beams) at tick 72
         let notes = vec![
-            BeamNote { onset: 0, ..beam_note(0, 2, 1) },
-            BeamNote { onset: 72, ..beam_note(1, 2, 2) },
+            BeamNote {
+                onset: 0,
+                ..beam_note(0, 2, 1)
+            },
+            BeamNote {
+                onset: 72,
+                ..beam_note(1, 2, 2)
+            },
         ];
         let group = layout_group(&notes, &METRICS);
         let stub = group.beams.iter().find(|b| b.level == 2).expect("a stub");
         let stem = group.stems[1];
-        assert!(stub.x1 < stem.x && stub.x2 > stem.x - 1e-6, "stub should point left of the stem");
-        assert!(stub.x2 - stub.x1 > 0.9 && stub.x2 - stub.x1 < 1.6, "stub is about a notehead long");
+        assert!(
+            stub.x1 < stem.x && stub.x2 > stem.x - 1e-6,
+            "stub should point left of the stem"
+        );
+        assert!(
+            stub.x2 - stub.x1 > 0.9 && stub.x2 - stub.x1 < 1.6,
+            "stub is about a notehead long"
+        );
         assert!(stub.x1 >= group.stems[0].x, "stub stays inside the group");
     }
 
     #[test]
     fn test_sixteenth_before_dotted_eighth_gets_a_stub_pointing_forward() {
         let notes = vec![
-            BeamNote { onset: 0, ..beam_note(0, 2, 2) },
-            BeamNote { onset: 24, ..beam_note(1, 2, 1) },
+            BeamNote {
+                onset: 0,
+                ..beam_note(0, 2, 2)
+            },
+            BeamNote {
+                onset: 24,
+                ..beam_note(1, 2, 1)
+            },
         ];
         let group = layout_group(&notes, &METRICS);
         let stub = group.beams.iter().find(|b| b.level == 2).expect("a stub");
         let stem = group.stems[0];
         assert!(stub.x2 > stem.x + 0.9);
         assert!(stub.x1 <= stem.x);
-        assert!(stub.x2 <= group.stems[1].x + 1e-3, "stub stays inside the group");
+        assert!(
+            stub.x2 <= group.stems[1].x + 1e-3,
+            "stub stays inside the group"
+        );
     }
 
     #[test]
@@ -985,20 +1128,38 @@ mod tests {
         // A lone sixteenth that would point out of the group on the second half of a beat,
         // as the last note, would point left; as the first note it must point right
         let first_note = vec![
-            BeamNote { onset: 24, ..beam_note(0, 2, 2) },
-            BeamNote { onset: 48, ..beam_note(1, 2, 1) },
+            BeamNote {
+                onset: 24,
+                ..beam_note(0, 2, 2)
+            },
+            BeamNote {
+                onset: 48,
+                ..beam_note(1, 2, 1)
+            },
         ];
         let group = layout_group(&first_note, &METRICS);
         let stub = group.beams.iter().find(|b| b.level == 2).unwrap();
-        assert!(stub.x2 > group.stems[0].x + 0.9, "first note: stub must point into the group");
+        assert!(
+            stub.x2 > group.stems[0].x + 0.9,
+            "first note: stub must point into the group"
+        );
 
         let last_note = vec![
-            BeamNote { onset: 0, ..beam_note(0, 2, 1) },
-            BeamNote { onset: 0, ..beam_note(1, 2, 2) },
+            BeamNote {
+                onset: 0,
+                ..beam_note(0, 2, 1)
+            },
+            BeamNote {
+                onset: 0,
+                ..beam_note(1, 2, 2)
+            },
         ];
         let group = layout_group(&last_note, &METRICS);
         let stub = group.beams.iter().find(|b| b.level == 2).unwrap();
-        assert!(stub.x1 < group.stems[1].x - 0.9, "last note: stub must point back into the group");
+        assert!(
+            stub.x1 < group.stems[1].x - 0.9,
+            "last note: stub must point back into the group"
+        );
     }
 
     #[test]
@@ -1006,22 +1167,37 @@ mod tests {
         // 8th, 16th, 16th, 8th: the inner beam joins only the two sixteenths
         let notes = vec![
             beam_note(0, 2, 1),
-            BeamNote { onset: 48, ..beam_note(1, 3, 2) },
-            BeamNote { onset: 72, ..beam_note(2, 3, 2) },
-            BeamNote { onset: 96, ..beam_note(3, 2, 1) },
+            BeamNote {
+                onset: 48,
+                ..beam_note(1, 3, 2)
+            },
+            BeamNote {
+                onset: 72,
+                ..beam_note(2, 3, 2)
+            },
+            BeamNote {
+                onset: 96,
+                ..beam_note(3, 2, 1)
+            },
         ];
         let group = layout_group(&notes, &METRICS);
         let inner: Vec<&Beam> = group.beams.iter().filter(|b| b.level == 2).collect();
         assert_eq!(inner.len(), 1);
         assert!(inner[0].x1 <= group.stems[1].x && inner[0].x2 >= group.stems[2].x);
-        assert!(inner[0].x2 < group.stems[3].x, "the last eighth has no second beam");
+        assert!(
+            inner[0].x2 < group.stems[3].x,
+            "the last eighth has no second beam"
+        );
         assert!(inner[0].x1 > group.stems[0].x);
     }
 
     #[test]
     fn test_layout_is_deterministic() {
         let notes = eighth_group(&[1, 3, 2, 4]);
-        assert_eq!(layout_group(&notes, &METRICS), layout_group(&notes, &METRICS));
+        assert_eq!(
+            layout_group(&notes, &METRICS),
+            layout_group(&notes, &METRICS)
+        );
     }
 
     #[test]

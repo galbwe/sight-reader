@@ -79,7 +79,11 @@ pub fn key_alterations(key: &KeySignature) -> [i32; 7] {
 fn pitch(letter: usize, alteration: i32, midi: i32) -> SpelledPitch {
     // The written octave follows the letter, so remove the alteration before dividing
     let octave = (midi - alteration - NATURAL_PITCH_CLASS[letter]).div_euclid(12) - 1;
-    SpelledPitch { letter, alteration, octave }
+    SpelledPitch {
+        letter,
+        alteration,
+        octave,
+    }
 }
 
 /// Choose the letter name and alteration for a MIDI note in a key.
@@ -199,7 +203,10 @@ mod tests {
     #[test]
     fn test_diatonic_index_anchors_the_staff() {
         let e4 = spell_pitch(64, &key(C_MAJOR), false);
-        assert_eq!(e4.diatonic_index(), crate::domain::Clef::Treble.bottom_line_diatonic_index());
+        assert_eq!(
+            e4.diatonic_index(),
+            crate::domain::Clef::Treble.bottom_line_diatonic_index()
+        );
         let f4 = spell_pitch(65, &key(C_MAJOR), false);
         assert_eq!(f4.diatonic_index(), e4.diatonic_index() + 1);
     }
@@ -246,7 +253,7 @@ mod tests {
         assert_eq!(spelled(65, C_SHARP_MAJOR, false), (E, 1, 4));
         assert_eq!(spelled(72, C_SHARP_MAJOR, false), (B, 1, 4)); // B#4 sounds as C5
         assert_eq!(spelled(60, C_SHARP_MAJOR, false), (B, 1, 3)); // B#3 sounds as C4
-        // Cb major has every note flat
+                                                                  // Cb major has every note flat
         assert_eq!(spelled(59, C_FLAT_MAJOR, false), (C, -1, 4)); // Cb4 sounds as B3
         assert_eq!(spelled(71, C_FLAT_MAJOR, false), (C, -1, 5));
         assert_eq!(spelled(64, C_FLAT_MAJOR, false), (F, -1, 4)); // Fb4 sounds as E4
@@ -255,11 +262,20 @@ mod tests {
     #[test]
     fn test_spelling_sounds_the_same_pitch() {
         // letter + alteration + octave must always give back the original MIDI number
-        for root in [C_MAJOR, G_MAJOR, D_MAJOR, F_MAJOR, B_FLAT_MAJOR, C_SHARP_MAJOR, C_FLAT_MAJOR] {
+        for root in [
+            C_MAJOR,
+            G_MAJOR,
+            D_MAJOR,
+            F_MAJOR,
+            B_FLAT_MAJOR,
+            C_SHARP_MAJOR,
+            C_FLAT_MAJOR,
+        ] {
             for midi in 24u8..=108 {
                 for descending in [false, true] {
                     let p = spell_pitch(midi, &key(root), descending);
-                    let sounding = (p.octave + 1) * 12 + NATURAL_PITCH_CLASS[p.letter] + p.alteration;
+                    let sounding =
+                        (p.octave + 1) * 12 + NATURAL_PITCH_CLASS[p.letter] + p.alteration;
                     assert_eq!(sounding, midi as i32, "key {root}, midi {midi}");
                     assert!(p.alteration.abs() <= 1);
                 }
@@ -268,7 +284,10 @@ mod tests {
     }
 
     fn signs(midis: &[u8], root: u8) -> Vec<Option<AccidentalSign>> {
-        spell_measure(midis, &key(root)).iter().map(|n| n.accidental).collect()
+        spell_measure(midis, &key(root))
+            .iter()
+            .map(|n| n.accidental)
+            .collect()
     }
 
     #[test]
@@ -292,7 +311,10 @@ mod tests {
     fn test_natural_cancels_the_key_signature() {
         use AccidentalSign::*;
         // G major: F natural needs a natural sign, and a following F# needs its sharp back
-        assert_eq!(signs(&[65, 65, 66], G_MAJOR), vec![Some(Natural), None, Some(Sharp)]);
+        assert_eq!(
+            signs(&[65, 65, 66], G_MAJOR),
+            vec![Some(Natural), None, Some(Sharp)]
+        );
         // F major: B natural, then B flat again
         assert_eq!(signs(&[71, 70], F_MAJOR), vec![Some(Natural), Some(Flat)]);
     }
@@ -301,7 +323,10 @@ mod tests {
     fn test_returning_to_the_natural_needs_a_natural_sign() {
         use AccidentalSign::*;
         // C#, then C natural, then C# again
-        assert_eq!(signs(&[61, 60, 61], C_MAJOR), vec![Some(Sharp), Some(Natural), Some(Sharp)]);
+        assert_eq!(
+            signs(&[61, 60, 61], C_MAJOR),
+            vec![Some(Sharp), Some(Natural), Some(Sharp)]
+        );
     }
 
     #[test]

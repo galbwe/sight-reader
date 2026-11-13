@@ -206,7 +206,10 @@ mod tests {
     }
 
     fn weight_of(moves: &[Move], steps: i32) -> u32 {
-        moves.iter().find(|m| m.steps == steps).map_or(0, |m| m.weight)
+        moves
+            .iter()
+            .find(|m| m.steps == steps)
+            .map_or(0, |m| m.weight)
     }
 
     #[test]
@@ -226,9 +229,15 @@ mod tests {
     fn test_no_downward_moves_from_the_lowest_note_and_no_upward_from_the_highest() {
         let rules = rules(IntervalSelection::default());
         let scale = scale();
-        assert!(rules.candidate_moves(&scale, 0, 0).iter().all(|m| m.steps >= 0));
+        assert!(rules
+            .candidate_moves(&scale, 0, 0)
+            .iter()
+            .all(|m| m.steps >= 0));
         let top = scale.len() - 1;
-        assert!(rules.candidate_moves(&scale, top, 0).iter().all(|m| m.steps <= 0));
+        assert!(rules
+            .candidate_moves(&scale, top, 0)
+            .iter()
+            .all(|m| m.steps <= 0));
     }
 
     #[test]
@@ -246,7 +255,11 @@ mod tests {
     fn test_steps_only_selection_offers_only_steps_and_repeats() {
         let rules = rules(IntervalSelection::steps_only());
         let scale = scale();
-        let sizes: Vec<i32> = rules.candidate_moves(&scale, 6, 0).iter().map(|m| m.steps.abs()).collect();
+        let sizes: Vec<i32> = rules
+            .candidate_moves(&scale, 6, 0)
+            .iter()
+            .map(|m| m.steps.abs())
+            .collect();
         assert!(sizes.iter().all(|&s| s <= 1));
         assert!(sizes.contains(&1) && sizes.contains(&0));
     }
@@ -257,7 +270,11 @@ mod tests {
         selection.skips = true;
         let rules = rules(selection);
         let scale = scale();
-        let sizes: Vec<i32> = rules.candidate_moves(&scale, 6, 0).iter().map(|m| m.steps.abs()).collect();
+        let sizes: Vec<i32> = rules
+            .candidate_moves(&scale, 6, 0)
+            .iter()
+            .map(|m| m.steps.abs())
+            .collect();
         assert!(sizes.iter().all(|&s| s <= 3));
         assert!(sizes.contains(&2) && sizes.contains(&3));
     }
@@ -315,8 +332,14 @@ mod tests {
     fn test_a_small_move_changes_nothing() {
         let rules = rules(IntervalSelection::default());
         let scale = scale();
-        assert_eq!(rules.candidate_moves(&scale, 7, 0), rules.candidate_moves(&scale, 7, 1));
-        assert_eq!(rules.candidate_moves(&scale, 7, 0), rules.candidate_moves(&scale, 7, -2));
+        assert_eq!(
+            rules.candidate_moves(&scale, 7, 0),
+            rules.candidate_moves(&scale, 7, 1)
+        );
+        assert_eq!(
+            rules.candidate_moves(&scale, 7, 0),
+            rules.candidate_moves(&scale, 7, -2)
+        );
     }
 
     #[test]
@@ -361,7 +384,16 @@ mod tests {
 
     #[test]
     fn test_pick_move_is_proportional_to_weight() {
-        let moves = [Move { steps: 1, weight: 1 }, Move { steps: -1, weight: 3 }];
+        let moves = [
+            Move {
+                steps: 1,
+                weight: 1,
+            },
+            Move {
+                steps: -1,
+                weight: 3,
+            },
+        ];
         assert_eq!(GenerationRules::pick_move(&moves, 0).unwrap().steps, 1);
         for roll in 1..4 {
             assert_eq!(GenerationRules::pick_move(&moves, roll).unwrap().steps, -1);
@@ -374,10 +406,10 @@ mod tests {
     fn test_recommended_intervals() {
         let config = crate::generator::IntervalSelection::default();
         let rules = GenerationRules::new(&config);
-        
+
         let easy = rules.recommended_intervals(2);
         assert!(easy.len() <= 4);
-        
+
         let hard = rules.recommended_intervals(10);
         assert!(hard.len() > 4);
     }
