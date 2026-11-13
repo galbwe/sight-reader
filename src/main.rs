@@ -1,5 +1,9 @@
 //! Sight Reading Trainer - A Rust application for generating sight reading exercises
 
+// The domain, generator and presentation layers expose builder methods and
+// variants that the CLI does not use yet (see AGENTS.md, "Extension Points").
+#![allow(dead_code)]
+
 mod domain;
 mod generator;
 mod presentation;
@@ -67,7 +71,7 @@ fn main() {
             let pdf_renderer = presentation::PdfNotationRenderer::new().with_clef(clef);
             pdf_renderer
                 .save_to_file(&measures, &output_path)
-                .expect(&format!("Failed to save PDF to {}", output_path));
+                .unwrap_or_else(|_| panic!("Failed to save PDF to {}", output_path));
 
             println!("PDF saved to: {}", output_path);
         }
@@ -308,7 +312,7 @@ fn parse_key(s: &str) -> u8 {
 
     let s_lower = s.to_lowercase();
 
-    for (i, &flat) in FLATS.iter().enumerate() {
+    for &flat in FLATS.iter() {
         if s_lower == flat.to_lowercase() {
             // For flat keys, use specific root values that will be recognized
             // by the is_flat_key check in calculate_signature

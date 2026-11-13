@@ -42,7 +42,6 @@ impl MusicalPhraseGenerator {
                     let shorter_beats = Self::note_beats(&shorter_note, self.time_signature);
                     if shorter_beats <= remaining_beats {
                         notes.push(shorter_note);
-                        remaining_beats -= shorter_beats;
                     }
                 }
                 break;
@@ -70,8 +69,6 @@ impl MusicalPhraseGenerator {
             NoteDuration::Quarter
         } else if remaining_beats >= 1.0 {
             NoteDuration::Eighth
-        } else if remaining_beats >= 0.5 {
-            NoteDuration::Sixteenth
         } else {
             NoteDuration::Sixteenth
         }
@@ -101,7 +98,7 @@ impl MusicalPhraseGenerator {
     }
 
     /// Generate a complete exercise measure
-    pub fn generate_measure(&self, measure_number: u32) -> Vec<Note> {
+    pub fn generate_measure(&self, _measure_number: u32) -> Vec<Note> {
         let beats_per_measure = self.time_signature.total_beats();
         self.generate_phrase(beats_per_measure)
     }

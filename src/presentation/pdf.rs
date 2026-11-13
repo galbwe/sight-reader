@@ -1729,7 +1729,7 @@ mod tests {
 
     #[test]
     fn test_ledger_lines_thicker_than_staff_lines() {
-        assert!(LEDGER_LINE_WIDTH > STAFF_LINE_WIDTH);
+        const { assert!(LEDGER_LINE_WIDTH > STAFF_LINE_WIDTH) };
     }
 
     #[test]

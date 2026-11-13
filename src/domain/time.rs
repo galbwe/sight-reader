@@ -111,7 +111,7 @@ impl BeatDivision {
     /// Determine the beat division from a time signature
     pub fn from_time_signature(ts: TimeSignature) -> Self {
         match ts.numerator {
-            2 | 3 | 4 => {
+            2..=4 => {
                 if ts.denominator == 8 {
                     // Could be compound
                     match ts.numerator {

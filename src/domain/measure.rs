@@ -1,6 +1,6 @@
 //! Measure representation
 
-use crate::domain::{KeyMode, KeySignature, Note, NoteDuration, TimeSignature};
+use crate::domain::{KeySignature, Note, TimeSignature};
 use std::fmt;
 
 /// Represents a measure in a musical piece
@@ -111,6 +111,7 @@ impl fmt::Display for Measure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::{KeyMode, NoteDuration};
 
     #[test]
     fn test_measure_creation() {

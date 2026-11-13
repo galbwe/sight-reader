@@ -140,10 +140,7 @@ impl KeySignature {
         // First check if this is a flat key by looking at root_note directly
         // For flat keys, use root values that don't match the sharp key pattern
         // F=53 (F4), Bb=58 (Bb4), Eb=51 (Eb4), Ab=56 (Ab4), Db=49 (Db4), Gb=54 (Gb4), Cb=47 (Cb4)
-        let is_flat_key = match root_note {
-            53 | 58 | 51 | 56 | 49 | 54 | 47 => true,
-            _ => false,
-        };
+        let is_flat_key = matches!(root_note, 53 | 58 | 51 | 56 | 49 | 54 | 47);
 
         if is_flat_key {
             // Use root_step for flat key lookup
@@ -157,7 +154,7 @@ impl KeySignature {
                 11 => 7, //Cb
                 _ => 0,
             };
-            return (-flats as i32, Self::flat_root(flats as u8));
+            return ((-flats), Self::flat_root(flats as u8));
         }
 
         match mode {
@@ -204,7 +201,7 @@ impl KeySignature {
 
     /// Get the number of accidentals (always non-negative)
     pub fn count(&self) -> u8 {
-        self.accidental_count.abs() as u8
+        self.accidental_count.unsigned_abs() as u8
     }
 
     /// Get the accidental for a given scale step (0-6)
