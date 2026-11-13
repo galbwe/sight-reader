@@ -40,7 +40,9 @@ impl Note {
 
     /// Get the note name without octave
     pub fn name(&self) -> &'static str {
-        const NAMES: &[&str] = &["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const NAMES: &[&str] = &[
+            "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+        ];
         NAMES[(self.midi_number % 12) as usize]
     }
 
@@ -159,7 +161,7 @@ mod tests {
     fn test_note_frequencies() {
         let a4 = Note::new(69, NoteDuration::Quarter);
         assert!((a4.frequency() - 440.0).abs() < 0.01);
-        
+
         let c4 = Note::new(60, NoteDuration::Quarter);
         assert!((c4.frequency() - 261.63).abs() < 0.01);
     }

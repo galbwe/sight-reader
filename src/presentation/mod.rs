@@ -4,8 +4,8 @@ pub mod ascii;
 mod beaming;
 pub mod midi;
 mod music_glyphs;
-mod spelling;
 pub mod pdf;
+mod spelling;
 pub mod tui;
 pub mod wav;
 
@@ -15,22 +15,23 @@ pub use pdf::PdfNotationRenderer;
 pub use wav::WavRenderer;
 // pub use tui::TuiRenderer;
 
-use crate::domain::{Measure, Note};
 use crate::domain::KeySignature;
+use crate::domain::{Measure, Note};
 
 /// Trait for rendering musical notation
 pub trait NotationRenderer {
     /// Render a single measure
     fn render_measure(&self, measure: &Measure) -> String;
-    
+
     /// Render multiple measures
     fn render_measures(&self, measures: &[Measure]) -> String {
-        measures.iter()
+        measures
+            .iter()
             .map(|m| self.render_measure(m))
             .collect::<Vec<_>>()
             .join("\n\n")
     }
-    
+
     /// Render a single note
     fn render_note(&self, note: &Note, key_sig: &KeySignature) -> String;
 }

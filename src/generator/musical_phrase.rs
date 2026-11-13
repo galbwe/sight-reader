@@ -1,6 +1,6 @@
 //! Musical phrase generation
 
-use crate::domain::{Note, NoteDuration, Key, TimeSignature};
+use crate::domain::{Key, Note, NoteDuration, TimeSignature};
 use crate::generator::{GenerationRules, Melody, OctaveRange};
 
 /// Generator for musical phrases
@@ -26,11 +26,11 @@ impl MusicalPhraseGenerator {
     pub fn generate_phrase(&self, beats: f64) -> Vec<Note> {
         let mut notes = Vec::new();
         let mut remaining_beats = beats;
-        
+
         while remaining_beats > 0.001 {
             let note = self.generate_next_note(&notes, remaining_beats);
             let note_beats = Self::note_beats(&note, self.time_signature);
-            
+
             if note_beats <= remaining_beats {
                 notes.push(note);
                 remaining_beats -= note_beats;
@@ -48,7 +48,7 @@ impl MusicalPhraseGenerator {
                 break;
             }
         }
-        
+
         notes
     }
 
@@ -96,7 +96,7 @@ impl MusicalPhraseGenerator {
         let adjustment = 4.0 / ts.denominator as f64;
         let dotted = if note.dotted { 1.5 } else { 1.0 };
         let triplet = if note.is_triplet { 2.0 / 3.0 } else { 1.0 };
-        
+
         base * adjustment * dotted * triplet
     }
 
@@ -108,9 +108,7 @@ impl MusicalPhraseGenerator {
 
     /// Generate multiple measures
     pub fn generate_measures(&self, count: u32) -> Vec<Vec<Note>> {
-        (1..=count)
-            .map(|n| self.generate_measure(n))
-            .collect()
+        (1..=count).map(|n| self.generate_measure(n)).collect()
     }
 }
 
@@ -123,15 +121,16 @@ mod tests {
         let key = Key::c_major();
         let ts = TimeSignature::common_time();
         let range = OctaveRange::centered_on_middle_c(2);
-        
+
         let generator = MusicalPhraseGenerator::new(key, ts, range);
         let phrase = generator.generate_phrase(4.0);
-        
+
         // Should generate notes that total approximately 4 beats
-        let total_beats: f64 = phrase.iter()
+        let total_beats: f64 = phrase
+            .iter()
             .map(|n| MusicalPhraseGenerator::note_beats(n, ts))
             .sum();
-        
+
         assert!((total_beats - 4.0).abs() < 0.01);
     }
 
@@ -140,10 +139,10 @@ mod tests {
         let key = Key::c_major();
         let ts = TimeSignature::common_time();
         let range = OctaveRange::centered_on_middle_c(2);
-        
+
         let generator = MusicalPhraseGenerator::new(key, ts, range);
         let measure = generator.generate_measure(1);
-        
+
         // Should have some notes
         assert!(!measure.is_empty());
     }

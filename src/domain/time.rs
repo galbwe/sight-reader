@@ -14,7 +14,10 @@ pub struct TimeSignature {
 impl TimeSignature {
     /// Create a new time signature
     pub fn new(numerator: u8, denominator: u8) -> Self {
-        TimeSignature { numerator, denominator }
+        TimeSignature {
+            numerator,
+            denominator,
+        }
     }
 
     /// Create 4/4 time (common time)
@@ -175,7 +178,7 @@ mod tests {
     fn test_beat_value() {
         let ts = TimeSignature::new(4, 4);
         assert_eq!(ts.beat_value(), 0.25); // quarter note
-        
+
         let ts = TimeSignature::new(6, 8);
         assert_eq!(ts.beat_value(), 0.125); // eighth note
     }

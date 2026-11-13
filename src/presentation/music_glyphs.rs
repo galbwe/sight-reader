@@ -691,14 +691,6 @@ pub const TIME_SIG_9: Glyph = Glyph {
 
 /// Time signature digits 0 to 9, indexed by digit.
 pub const TIME_SIG_DIGITS: [Glyph; 10] = [
-    TIME_SIG_0,
-    TIME_SIG_1,
-    TIME_SIG_2,
-    TIME_SIG_3,
-    TIME_SIG_4,
-    TIME_SIG_5,
-    TIME_SIG_6,
-    TIME_SIG_7,
-    TIME_SIG_8,
-    TIME_SIG_9,
+    TIME_SIG_0, TIME_SIG_1, TIME_SIG_2, TIME_SIG_3, TIME_SIG_4, TIME_SIG_5, TIME_SIG_6, TIME_SIG_7,
+    TIME_SIG_8, TIME_SIG_9,
 ];

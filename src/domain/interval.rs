@@ -14,7 +14,10 @@ pub struct Interval {
 impl Interval {
     /// Create a new interval
     pub fn new(scale_steps: i32, semitones: i32) -> Self {
-        Interval { scale_steps, semitones }
+        Interval {
+            scale_steps,
+            semitones,
+        }
     }
 
     /// Create a unison interval
@@ -115,7 +118,7 @@ impl fmt::Display for Interval {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let quality = self.determine_quality();
         let number = self.scale_steps;
-        
+
         // Handle compound intervals
         let (number, octave_offset) = if number > 8 {
             (number - 7, (number - 1) / 7)

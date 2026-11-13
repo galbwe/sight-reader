@@ -1,7 +1,7 @@
 //! Measure representation
 
+use crate::domain::{KeyMode, KeySignature, Note, NoteDuration, TimeSignature};
 use std::fmt;
-use crate::domain::{Note, TimeSignature, KeySignature, KeyMode, NoteDuration};
 
 /// Represents a measure in a musical piece
 #[derive(Debug, Clone)]
@@ -35,13 +35,14 @@ impl Measure {
         // Check if the note fits within the measure duration
         let current_duration = self.total_duration();
         let note_duration = Self::note_duration_in_beats(&note, self.time_signature);
-        
+
         current_duration + note_duration <= self.time_signature.total_beats()
     }
 
     /// Calculate total duration of notes in the measure
     pub fn total_duration(&self) -> f64 {
-        self.notes.iter()
+        self.notes
+            .iter()
             .map(|n| Self::note_duration_in_beats(n, self.time_signature))
             .sum()
     }
@@ -116,7 +117,7 @@ mod tests {
         let ts = TimeSignature::common_time();
         let key = KeySignature::new(60, KeyMode::Major);
         let measure = Measure::new(1, ts, key);
-        
+
         assert_eq!(measure.number, 1);
         assert!(measure.notes.is_empty());
         assert!(!measure.is_full());
@@ -127,12 +128,12 @@ mod tests {
         let ts = TimeSignature::common_time();
         let key = KeySignature::new(60, KeyMode::Major);
         let mut measure = Measure::new(1, ts, key);
-        
+
         let c4 = Note::new(60, NoteDuration::Quarter);
         // Note: add_note returns boolean indicating if it fits
         // We push directly for testing purposes
         measure.notes.push(c4);
-        
+
         assert_eq!(measure.notes.len(), 1);
         assert_eq!(measure.total_duration(), 1.0);
     }
@@ -142,17 +143,22 @@ mod tests {
         let ts = TimeSignature::common_time(); // 4/4 time
         let key = KeySignature::new(60, KeyMode::Major);
         let mut measure = Measure::new(1, ts, key);
-        
+
         // Add four quarter notes = 1 measure (4 beats in 4/4 time)
         for _ in 0..4 {
             let note = Note::new(60, NoteDuration::Quarter);
             measure.notes.push(note);
         }
-        
+
         // 4 quarter notes = 4 beats in 4/4 time
         let total = measure.total_duration();
         let expected = ts.total_beats(); // 4.0 for 4/4 time
-        assert!((total - expected).abs() < 0.001, "Total: {}, Expected: {}", total, expected);
+        assert!(
+            (total - expected).abs() < 0.001,
+            "Total: {}, Expected: {}",
+            total,
+            expected
+        );
         assert!(measure.is_full());
         assert!(!measure.has_space());
     }

@@ -1,16 +1,18 @@
 //! PDF notation renderer using lopdf library
 
 use super::beaming::{
-    beam_groups, flag_count, layout_group, note_onsets, Beam, BeamMetrics, BeamNote, BeamedStem, BEAM_THICKNESS,
+    beam_groups, flag_count, layout_group, note_onsets, Beam, BeamMetrics, BeamNote, BeamedStem,
+    BEAM_THICKNESS,
 };
 use super::music_glyphs::{
-    Glyph, PathOp, BASS_CLEF, FLAT, HALF_NOTEHEAD, NATURAL, SHARP, TIME_SIG_DIGITS, TREBLE_CLEF, WHOLE_NOTEHEAD,
+    Glyph, PathOp, BASS_CLEF, FLAT, HALF_NOTEHEAD, NATURAL, SHARP, TIME_SIG_DIGITS, TREBLE_CLEF,
+    WHOLE_NOTEHEAD,
 };
 use super::spelling::{spell_measure, AccidentalSign, SpelledNote, SpelledPitch};
 use crate::domain::{Clef, KeySignature, Measure, Note, NoteDuration, TimeSignature};
-use lopdf::{Document, Object, Stream, Dictionary, ObjectId};
 use lopdf::content::{Content, Operation};
 use lopdf::dictionary;
+use lopdf::{Dictionary, Document, Object, ObjectId, Stream};
 
 /// A4 page size in points
 const PAGE_WIDTH: f32 = 595.0;
@@ -130,27 +132,45 @@ impl PdfNotationRenderer {
     }
 
     pub fn with_measure_width(self, width: f32) -> Self {
-        Self { measure_width: width, ..self }
+        Self {
+            measure_width: width,
+            ..self
+        }
     }
 
     pub fn with_system_spacing(self, spacing: f32) -> Self {
-        Self { system_spacing: spacing, ..self }
+        Self {
+            system_spacing: spacing,
+            ..self
+        }
     }
 
     pub fn with_note_spacing(self, spacing: f32) -> Self {
-        Self { note_spacing: spacing, ..self }
+        Self {
+            note_spacing: spacing,
+            ..self
+        }
     }
 
     pub fn without_clef(self) -> Self {
-        Self { show_clef: false, ..self }
+        Self {
+            show_clef: false,
+            ..self
+        }
     }
 
     pub fn without_key_signature(self) -> Self {
-        Self { show_key_signature: false, ..self }
+        Self {
+            show_key_signature: false,
+            ..self
+        }
     }
 
     pub fn without_time_signature(self) -> Self {
-        Self { show_time_signature: false, ..self }
+        Self {
+            show_time_signature: false,
+            ..self
+        }
     }
 }
 
@@ -216,11 +236,14 @@ impl PdfNotationRenderer {
             page_ids.push(self.create_page(&mut doc, pages_id, font_resources_id, operations)?);
         }
 
-        doc.objects.insert(pages_id, Object::Dictionary(dictionary! {
-            "Type" => "Pages",
-            "Kids" => page_ids.iter().map(|id| Object::Reference(*id)).collect::<Vec<_>>(),
-            "Count" => page_ids.len() as u32,
-        }));
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => page_ids.iter().map(|id| Object::Reference(*id)).collect::<Vec<_>>(),
+                "Count" => page_ids.len() as u32,
+            }),
+        );
 
         let catalog_id = doc.add_object(dictionary! {
             "Type" => "Catalog",
@@ -228,7 +251,9 @@ impl PdfNotationRenderer {
         });
         doc.trailer.set("Root", catalog_id);
 
-        doc.save(filepath).map(|_| ()).map_err(|e| format!("Failed to save PDF: {}", e))
+        doc.save(filepath)
+            .map(|_| ())
+            .map_err(|e| format!("Failed to save PDF: {}", e))
     }
 
     /// Lay out all measures and return one list of drawing operations per page.
@@ -274,7 +299,11 @@ impl PdfNotationRenderer {
         let mut cursor = 0.0f32;
         let mut placed_any = false;
         let mut place = |width_spaces: f32| -> f32 {
-            cursor += if placed_any { SYMBOL_GAP_SPACES } else { HEADER_LEFT_PAD_SPACES };
+            cursor += if placed_any {
+                SYMBOL_GAP_SPACES
+            } else {
+                HEADER_LEFT_PAD_SPACES
+            };
             let x = cursor * STAFF_LINE_GAP;
             cursor += width_spaces;
             placed_any = true;
@@ -290,7 +319,11 @@ impl PdfNotationRenderer {
         if let (true, Some(time)) = (self.show_time_signature, time) {
             layout.time_x = Some(place(time_signature_width(time)));
         }
-        layout.width = if placed_any { cursor * STAFF_LINE_GAP } else { 0.0 };
+        layout.width = if placed_any {
+            cursor * STAFF_LINE_GAP
+        } else {
+            0.0
+        };
         layout
     }
 
@@ -307,8 +340,9 @@ impl PdfNotationRenderer {
         };
         // The first row has the widest header, so it decides how many measures fit in a row
         let widest_header = self.header_layout(&first.key_signature, Some(&first.time_signature));
-        let per_system =
-            (((Self::usable_width() - widest_header.width) / self.measure_width).floor() as usize).max(1);
+        let per_system = (((Self::usable_width() - widest_header.width) / self.measure_width)
+            .floor() as usize)
+            .max(1);
         let systems_per_page = self.systems_per_page();
 
         (0..measures.len())
@@ -370,7 +404,12 @@ impl PdfNotationRenderer {
             self.push_staff_lines(operations, PAGE_MARGIN_X, system_width, slot.staff_bottom_y);
             self.draw_header(operations, measure, slot);
         }
-        push_barline(operations, slot.x + slot.width, slot.staff_bottom_y, self.staff_height());
+        push_barline(
+            operations,
+            slot.x + slot.width,
+            slot.staff_bottom_y,
+            self.staff_height(),
+        );
 
         // Spread the notes evenly across the measure, away from the barlines
         let note_area_start = slot.x + NOTE_AREA_PADDING;
@@ -383,10 +422,18 @@ impl PdfNotationRenderer {
             .collect();
 
         // Notes shorter than a quarter that share a beat are joined by beams instead of flags
-        let (beamed_stems, beams) = beamed_notes(measure, &spelled, &note_xs, slot.staff_bottom_y, self.clef);
+        let (beamed_stems, beams) =
+            beamed_notes(measure, &spelled, &note_xs, slot.staff_bottom_y, self.clef);
 
         for (i, (note, spelled)) in measure.notes.iter().zip(&spelled).enumerate() {
-            self.draw_note(operations, note, spelled, note_xs[i], slot.staff_bottom_y, beamed_stems[i])?;
+            self.draw_note(
+                operations,
+                note,
+                spelled,
+                note_xs[i],
+                slot.staff_bottom_y,
+                beamed_stems[i],
+            )?;
         }
         for beam in &beams {
             push_beam(operations, beam, slot.staff_bottom_y);
@@ -402,11 +449,17 @@ impl PdfNotationRenderer {
         let at_step = |steps: i32| bottom + steps as f32 * STAFF_STEP;
 
         if let Some(clef_x) = slot.header.clef_x {
-            push_glyph(operations, &clef_glyph(self.clef), PAGE_MARGIN_X + clef_x, at_step(self.clef.reference_line_steps()));
+            push_glyph(
+                operations,
+                &clef_glyph(self.clef),
+                PAGE_MARGIN_X + clef_x,
+                at_step(self.clef.reference_line_steps()),
+            );
         }
 
         if let Some(key_x) = slot.header.key_x {
-            for (glyph, offset, position) in key_signature_glyphs(&measure.key_signature, self.clef) {
+            for (glyph, offset, position) in key_signature_glyphs(&measure.key_signature, self.clef)
+            {
                 let x = PAGE_MARGIN_X + key_x + offset * STAFF_LINE_GAP;
                 push_glyph(operations, &glyph, x, at_step(position));
             }
@@ -422,7 +475,12 @@ impl PdfNotationRenderer {
                 let digits = number_glyphs(value);
                 let mut offset = (total_width - run_width(&digits)) / 2.0;
                 for digit in digits {
-                    push_glyph(operations, &digit, PAGE_MARGIN_X + time_x + offset * STAFF_LINE_GAP, at_step(steps));
+                    push_glyph(
+                        operations,
+                        &digit,
+                        PAGE_MARGIN_X + time_x + offset * STAFF_LINE_GAP,
+                        at_step(steps),
+                    );
                     offset += digit.width;
                 }
             }
@@ -430,7 +488,13 @@ impl PdfNotationRenderer {
     }
 
     /// Draw the horizontal staff lines of one system
-    fn push_staff_lines(&self, operations: &mut Vec<Operation>, x: f32, width: f32, staff_bottom_y: f32) {
+    fn push_staff_lines(
+        &self,
+        operations: &mut Vec<Operation>,
+        x: f32,
+        width: f32,
+        staff_bottom_y: f32,
+    ) {
         operations.push(Operation::new("q", vec![]));
         operations.push(Operation::new("w", vec![STAFF_LINE_WIDTH.into()]));
         for i in 0..self.staff_lines as i32 {
@@ -511,10 +575,20 @@ impl PdfNotationRenderer {
 /// (no scale/rotation) and `e f` is the translation.
 fn push_text(operations: &mut Vec<Operation>, text: &str, font_size: f32, x: f32, y: f32) {
     operations.push(Operation::new("BT", vec![]));
-    operations.push(Operation::new("Tf", vec![Object::Name(b"F1".to_vec()), font_size.into()]));
+    operations.push(Operation::new(
+        "Tf",
+        vec![Object::Name(b"F1".to_vec()), font_size.into()],
+    ));
     operations.push(Operation::new(
         "Tm",
-        vec![1.0.into(), 0.0.into(), 0.0.into(), 1.0.into(), x.into(), y.into()],
+        vec![
+            1.0.into(),
+            0.0.into(),
+            0.0.into(),
+            1.0.into(),
+            x.into(),
+            y.into(),
+        ],
     ));
     operations.push(Operation::new("Tj", vec![Object::string_literal(text)]));
     operations.push(Operation::new("ET", vec![]));
@@ -548,7 +622,11 @@ fn accidental_glyph(sign: AccidentalSign) -> Glyph {
 /// The sign sits directly left of the notehead, with its right edge `ACCIDENTAL_GAP_SPACES` away.
 /// When the note has ledger lines the sign clears their left ends instead.
 fn accidental_origin_x(note_x: f32, has_ledger_lines: bool, glyph: &Glyph, half_width: f32) -> f32 {
-    let ledger_extension = if has_ledger_lines { LEDGER_LINE_EXTENSION } else { 0.0 };
+    let ledger_extension = if has_ledger_lines {
+        LEDGER_LINE_EXTENSION
+    } else {
+        0.0
+    };
     note_x - half_width - ledger_extension - (ACCIDENTAL_GAP_SPACES + glyph.width) * STAFF_LINE_GAP
 }
 
@@ -563,7 +641,12 @@ fn push_accidental(
     half_width: f32,
 ) {
     let glyph = accidental_glyph(sign);
-    push_glyph(operations, &glyph, accidental_origin_x(note_x, has_ledger_lines, &glyph, half_width), note_y);
+    push_glyph(
+        operations,
+        &glyph,
+        accidental_origin_x(note_x, has_ledger_lines, &glyph, half_width),
+        note_y,
+    );
 }
 
 /// Push operations that fill a glyph outline with its origin at (x, y).
@@ -574,7 +657,14 @@ fn push_glyph(operations: &mut Vec<Operation>, glyph: &Glyph, x: f32, y: f32) {
 }
 
 /// Like `push_glyph`, with the glyph stretched horizontally by `scale_x` and vertically by `scale_y`
-fn push_glyph_scaled(operations: &mut Vec<Operation>, glyph: &Glyph, x: f32, y: f32, scale_x: f32, scale_y: f32) {
+fn push_glyph_scaled(
+    operations: &mut Vec<Operation>,
+    glyph: &Glyph,
+    x: f32,
+    y: f32,
+    scale_x: f32,
+    scale_y: f32,
+) {
     operations.push(Operation::new("q", vec![]));
     operations.push(Operation::new(
         "cm",
@@ -591,9 +681,17 @@ fn push_glyph_scaled(operations: &mut Vec<Operation>, glyph: &Glyph, x: f32, y: 
         operations.push(match *op {
             PathOp::Move(x, y) => Operation::new("m", vec![x.into(), y.into()]),
             PathOp::Line(x, y) => Operation::new("l", vec![x.into(), y.into()]),
-            PathOp::Curve(c1x, c1y, c2x, c2y, x, y) => {
-                Operation::new("c", vec![c1x.into(), c1y.into(), c2x.into(), c2y.into(), x.into(), y.into()])
-            }
+            PathOp::Curve(c1x, c1y, c2x, c2y, x, y) => Operation::new(
+                "c",
+                vec![
+                    c1x.into(),
+                    c1y.into(),
+                    c2x.into(),
+                    c2y.into(),
+                    x.into(),
+                    y.into(),
+                ],
+            ),
             PathOp::Close => Operation::new("h", vec![]),
         });
     }
@@ -615,7 +713,13 @@ fn key_signature_glyphs(key: &KeySignature, clef: Clef) -> Vec<(Glyph, f32, i32)
         (false, Clef::Bass) => (FLAT, BASS_FLAT_POSITIONS),
     };
     (0..count)
-        .map(|i| (glyph, i as f32 * (glyph.width + KEY_ACCIDENTAL_GAP_SPACES), positions[i]))
+        .map(|i| {
+            (
+                glyph,
+                i as f32 * (glyph.width + KEY_ACCIDENTAL_GAP_SPACES),
+                positions[i],
+            )
+        })
         .collect()
 }
 
@@ -657,7 +761,10 @@ fn push_ellipse_path(operations: &mut Vec<Operation>, rx: f32, ry: f32) {
         [kx, -ry, rx, -ky, rx, 0.0],
     ];
     for curve in curves {
-        operations.push(Operation::new("c", curve.iter().map(|v| (*v).into()).collect()));
+        operations.push(Operation::new(
+            "c",
+            curve.iter().map(|v| (*v).into()).collect(),
+        ));
     }
     operations.push(Operation::new("h", vec![]));
 }
@@ -675,7 +782,10 @@ fn flag_right_extent() -> f32 {
         for step in 0..=SAMPLES {
             let t = step as f32 / SAMPLES as f32;
             let m = 1.0 - t;
-            let u = m.powi(3) * start_x + 3.0 * m * m * t * c1x + 3.0 * m * t * t * c2x + t.powi(3) * end_x;
+            let u = m.powi(3) * start_x
+                + 3.0 * m * m * t * c1x
+                + 3.0 * m * t * t * c2x
+                + t.powi(3) * end_x;
             max_u = max_u.max(u);
         }
         start_x = end_x;
@@ -707,7 +817,11 @@ fn dot_position(
     }
 
     let on_a_line = position.rem_euclid(2) == 0;
-    let y = if on_a_line { note_y + STAFF_STEP } else { note_y };
+    let y = if on_a_line {
+        note_y + STAFF_STEP
+    } else {
+        note_y
+    };
     (left + radius, y)
 }
 
@@ -715,7 +829,17 @@ fn dot_position(
 fn push_dot(operations: &mut Vec<Operation>, x: f32, y: f32) {
     let radius = DOT_DIAMETER_SPACES * STAFF_LINE_GAP / 2.0;
     operations.push(Operation::new("q", vec![]));
-    operations.push(Operation::new("cm", vec![1.0.into(), 0.0.into(), 0.0.into(), 1.0.into(), x.into(), y.into()]));
+    operations.push(Operation::new(
+        "cm",
+        vec![
+            1.0.into(),
+            0.0.into(),
+            0.0.into(),
+            1.0.into(),
+            x.into(),
+            y.into(),
+        ],
+    ));
     push_ellipse_path(operations, radius, radius);
     operations.push(Operation::new("f", vec![]));
     operations.push(Operation::new("Q", vec![]));
@@ -750,7 +874,14 @@ fn push_notehead(operations: &mut Vec<Operation>, x: f32, y: f32) {
     operations.push(Operation::new("q", vec![]));
     operations.push(Operation::new(
         "cm",
-        vec![cos.into(), sin.into(), (-sin).into(), cos.into(), x.into(), y.into()],
+        vec![
+            cos.into(),
+            sin.into(),
+            (-sin).into(),
+            cos.into(),
+            x.into(),
+            y.into(),
+        ],
     ));
     push_ellipse_path(operations, NOTEHEAD_RX, NOTEHEAD_RY);
     operations.push(Operation::new("f", vec![]));
@@ -773,7 +904,14 @@ fn push_half_notehead(operations: &mut Vec<Operation>, x: f32, y: f32) {
     let height = 2.0 * notehead_half_height();
     let scale_x = width / (HALF_NOTEHEAD.width * STAFF_LINE_GAP);
     let scale_y = height / STAFF_LINE_GAP; // the glyph is exactly one space tall
-    push_glyph_scaled(operations, &HALF_NOTEHEAD, x - width / 2.0, y, scale_x, scale_y);
+    push_glyph_scaled(
+        operations,
+        &HALF_NOTEHEAD,
+        x - width / 2.0,
+        y,
+        scale_x,
+        scale_y,
+    );
 }
 
 /// Push operations that draw a thin barline spanning the staff at `x`.
@@ -781,7 +919,10 @@ fn push_barline(operations: &mut Vec<Operation>, x: f32, staff_bottom_y: f32, st
     operations.push(Operation::new("q", vec![]));
     operations.push(Operation::new("w", vec![BARLINE_WIDTH.into()]));
     operations.push(Operation::new("m", vec![x.into(), staff_bottom_y.into()]));
-    operations.push(Operation::new("l", vec![x.into(), (staff_bottom_y + staff_height).into()]));
+    operations.push(Operation::new(
+        "l",
+        vec![x.into(), (staff_bottom_y + staff_height).into()],
+    ));
     operations.push(Operation::new("S", vec![]));
     operations.push(Operation::new("Q", vec![]));
 }
@@ -794,7 +935,9 @@ fn ledger_line_positions(position: i32) -> Vec<i32> {
     if position < 0 {
         (position..=-2).filter(|p| p % 2 == 0).rev().collect()
     } else if position > TOP_LINE_STEPS {
-        (TOP_LINE_STEPS + 2..=position).filter(|p| p % 2 == 0).collect()
+        (TOP_LINE_STEPS + 2..=position)
+            .filter(|p| p % 2 == 0)
+            .collect()
     } else {
         Vec::new()
     }
@@ -807,7 +950,13 @@ fn ledger_line_extent(x: f32, half_width: f32) -> (f32, f32) {
 }
 
 /// Push operations that draw the ledger lines for a note at `position` steps above the bottom staff line.
-fn push_ledger_lines(operations: &mut Vec<Operation>, x: f32, staff_bottom_y: f32, position: i32, half_width: f32) {
+fn push_ledger_lines(
+    operations: &mut Vec<Operation>,
+    x: f32,
+    staff_bottom_y: f32,
+    position: i32,
+    half_width: f32,
+) {
     let lines = ledger_line_positions(position);
     if lines.is_empty() {
         return;
@@ -941,10 +1090,22 @@ fn push_beam(operations: &mut Vec<Operation>, beam: &Beam, staff_bottom_y: f32) 
     let thickness = beam.toward_heads * BEAM_THICKNESS;
 
     operations.push(Operation::new("q", vec![]));
-    operations.push(Operation::new("m", vec![to_x(beam.x1).into(), to_y(beam.y1).into()]));
-    operations.push(Operation::new("l", vec![to_x(beam.x2).into(), to_y(beam.y2).into()]));
-    operations.push(Operation::new("l", vec![to_x(beam.x2).into(), to_y(beam.y2 + thickness).into()]));
-    operations.push(Operation::new("l", vec![to_x(beam.x1).into(), to_y(beam.y1 + thickness).into()]));
+    operations.push(Operation::new(
+        "m",
+        vec![to_x(beam.x1).into(), to_y(beam.y1).into()],
+    ));
+    operations.push(Operation::new(
+        "l",
+        vec![to_x(beam.x2).into(), to_y(beam.y2).into()],
+    ));
+    operations.push(Operation::new(
+        "l",
+        vec![to_x(beam.x2).into(), to_y(beam.y2 + thickness).into()],
+    ));
+    operations.push(Operation::new(
+        "l",
+        vec![to_x(beam.x1).into(), to_y(beam.y1 + thickness).into()],
+    ));
     operations.push(Operation::new("h", vec![]));
     operations.push(Operation::new("f", vec![]));
     operations.push(Operation::new("Q", vec![]));
@@ -954,7 +1115,10 @@ fn push_beam(operations: &mut Vec<Operation>, beam: &Beam, staff_bottom_y: f32) 
 fn push_stem(operations: &mut Vec<Operation>, stem: &StemGeometry) {
     operations.push(Operation::new("q", vec![]));
     operations.push(Operation::new("w", vec![STEM_LINE_WIDTH.into()]));
-    operations.push(Operation::new("m", vec![stem.x.into(), stem.start_y.into()]));
+    operations.push(Operation::new(
+        "m",
+        vec![stem.x.into(), stem.start_y.into()],
+    ));
     operations.push(Operation::new("l", vec![stem.x.into(), stem.end_y.into()]));
     operations.push(Operation::new("S", vec![]));
     operations.push(Operation::new("Q", vec![]));
@@ -973,7 +1137,8 @@ fn push_flags(operations: &mut Vec<Operation>, stem: &StemGeometry, count: u8) {
 
     for i in 0..count {
         let offset = i as f32 * FLAG_SPACING_SPACES;
-        let length = FLAG_TAIL_LENGTH_SPACES + i as f32 * (FLAG_EXTRA_DEPTH_SPACES - FLAG_SPACING_SPACES);
+        let length =
+            FLAG_TAIL_LENGTH_SPACES + i as f32 * (FLAG_EXTRA_DEPTH_SPACES - FLAG_SPACING_SPACES);
         let point = |u: f32, v: f32| -> (Object, Object) {
             let x = left + u * width;
             let y = stem.end_y + toward_head * (offset + v * length) * STAFF_LINE_GAP;
@@ -1020,7 +1185,10 @@ mod tests {
 
     /// Staff position of a MIDI note when written in a key (C major unless stated)
     fn position_in(midi: u8, key_root: u8) -> i32 {
-        staff_position(&crate::presentation::spelling::spell_pitch(midi, &key(key_root), false), Clef::Treble)
+        staff_position(
+            &crate::presentation::spelling::spell_pitch(midi, &key(key_root), false),
+            Clef::Treble,
+        )
     }
 
     #[test]
@@ -1055,19 +1223,29 @@ mod tests {
     fn test_accidental_glyph_per_sign() {
         assert_eq!(accidental_glyph(AccidentalSign::Sharp).width, SHARP.width);
         assert_eq!(accidental_glyph(AccidentalSign::Flat).width, FLAT.width);
-        assert_eq!(accidental_glyph(AccidentalSign::Natural).width, NATURAL.width);
+        assert_eq!(
+            accidental_glyph(AccidentalSign::Natural).width,
+            NATURAL.width
+        );
     }
 
     #[test]
     fn test_accidental_sits_left_of_the_notehead_with_a_gap() {
         let (half_width, _) = notehead_stem_anchor();
-        for sign in [AccidentalSign::Sharp, AccidentalSign::Flat, AccidentalSign::Natural] {
+        for sign in [
+            AccidentalSign::Sharp,
+            AccidentalSign::Flat,
+            AccidentalSign::Natural,
+        ] {
             let glyph = accidental_glyph(sign);
             let origin = accidental_origin_x(100.0, false, &glyph, notehead_stem_anchor().0);
             let right_edge = origin + glyph.width * STAFF_LINE_GAP;
             let notehead_left = 100.0 - half_width;
             assert!(right_edge < notehead_left, "{sign:?} overlaps the notehead");
-            assert!(((notehead_left - right_edge) - ACCIDENTAL_GAP_SPACES * STAFF_LINE_GAP).abs() < 1e-4);
+            assert!(
+                ((notehead_left - right_edge) - ACCIDENTAL_GAP_SPACES * STAFF_LINE_GAP).abs()
+                    < 1e-4
+            );
         }
     }
 
@@ -1085,7 +1263,14 @@ mod tests {
     #[test]
     fn test_push_accidental_is_vertically_centered_on_the_note() {
         let mut ops = vec![];
-        push_accidental(&mut ops, AccidentalSign::Flat, 100.0, 77.5, false, notehead_stem_anchor().0);
+        push_accidental(
+            &mut ops,
+            AccidentalSign::Flat,
+            100.0,
+            77.5,
+            false,
+            notehead_stem_anchor().0,
+        );
         let cm = ops.iter().find(|op| op.operator == "cm").unwrap();
         let values: Vec<f32> = cm.operands.iter().map(|o| o.as_float().unwrap()).collect();
         assert_eq!(values[5], 77.5);
@@ -1104,7 +1289,9 @@ mod tests {
             m
         };
         let fills = |measure: Measure| {
-            let renderer = PdfNotationRenderer::new().without_clef().without_time_signature();
+            let renderer = PdfNotationRenderer::new()
+                .without_clef()
+                .without_time_signature();
             count_ops(&renderer.render_pages(&[measure]).unwrap()[0], "f")
         };
         assert_eq!(fills(notes(&[60])), 1); // notehead
@@ -1119,7 +1306,10 @@ mod tests {
         // Bb major: Bb is in the key signature, so no flat sign in front of it
         let mut m = Measure::new(1, TimeSignature::common_time(), key(B_FLAT_MAJOR));
         m.notes.push(Note::new(70, Quarter));
-        let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+        let renderer = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
         assert_eq!(count_ops(&renderer.render_pages(&[m]).unwrap()[0], "f"), 1);
     }
 
@@ -1135,7 +1325,13 @@ mod tests {
     fn measures_in(count: usize, key_root: u8, time: TimeSignature) -> Vec<Measure> {
         use crate::domain::KeyMode;
         (0..count)
-            .map(|i| Measure::new(i as u32 + 1, time, KeySignature::new(key_root, KeyMode::Major)))
+            .map(|i| {
+                Measure::new(
+                    i as u32 + 1,
+                    time,
+                    KeySignature::new(key_root, KeyMode::Major),
+                )
+            })
             .collect()
     }
 
@@ -1194,8 +1390,14 @@ mod tests {
         let slots = renderer.layout(&empty_measures(per_page + 1));
         assert_eq!(slots[per_page - 1].page, 0);
         assert_eq!(slots[per_page].page, 1);
-        assert_eq!(slots[per_page].staff_bottom_y, renderer.first_staff_bottom_y());
-        assert_eq!(slots[per_page].x, PAGE_MARGIN_X + slots[per_page].header.width);
+        assert_eq!(
+            slots[per_page].staff_bottom_y,
+            renderer.first_staff_bottom_y()
+        );
+        assert_eq!(
+            slots[per_page].x,
+            PAGE_MARGIN_X + slots[per_page].header.width
+        );
     }
 
     #[test]
@@ -1204,7 +1406,9 @@ mod tests {
         let slots = renderer.layout(&empty_measures(3));
         assert!(slots.iter().all(|slot| slot.index_in_system == 0));
         for slot in &slots {
-            assert!((slot.header.width + slot.width - PdfNotationRenderer::usable_width()).abs() < 1e-3);
+            assert!(
+                (slot.header.width + slot.width - PdfNotationRenderer::usable_width()).abs() < 1e-3
+            );
         }
     }
 
@@ -1222,7 +1426,9 @@ mod tests {
     fn test_render_pages_splits_across_pages() {
         let renderer = PdfNotationRenderer::new();
         let per_page = measures_per_row(&renderer) * renderer.systems_per_page();
-        let pages = renderer.render_pages(&empty_measures(per_page + 1)).unwrap();
+        let pages = renderer
+            .render_pages(&empty_measures(per_page + 1))
+            .unwrap();
         assert_eq!(pages.len(), 2);
         assert_eq!(count_ops(&pages[1], "S"), 5 + 1); // one system, one measure
     }
@@ -1250,7 +1456,10 @@ mod tests {
         let positions: Vec<i32> = glyphs.iter().map(|g| g.2).collect();
         // F C G D A E B in treble clef
         assert_eq!(positions, vec![8, 5, 9, 6, 3, 7, 4]);
-        assert_eq!(positions[0], TOP_LINE_STEPS, "the first sharp (F) is on the top line");
+        assert_eq!(
+            positions[0], TOP_LINE_STEPS,
+            "the first sharp (F) is on the top line"
+        );
     }
 
     #[test]
@@ -1259,14 +1468,20 @@ mod tests {
         let positions: Vec<i32> = glyphs.iter().map(|g| g.2).collect();
         // B E A D G C F in treble clef
         assert_eq!(positions, vec![4, 7, 3, 6, 2, 5, 1]);
-        assert_eq!(positions[0], MIDDLE_LINE_STEPS as i32, "the first flat (B) is on the middle line");
+        assert_eq!(
+            positions[0], MIDDLE_LINE_STEPS as i32,
+            "the first flat (B) is on the middle line"
+        );
     }
 
     #[test]
     fn test_key_signature_needs_no_ledger_lines() {
         for root in [C_SHARP_MAJOR, C_FLAT_MAJOR] {
             for (_, _, position) in key_signature_glyphs(&key(root), Clef::Treble) {
-                assert!(ledger_line_positions(position).is_empty(), "position {position} needs a ledger line");
+                assert!(
+                    ledger_line_positions(position).is_empty(),
+                    "position {position} needs a ledger line"
+                );
             }
         }
     }
@@ -1286,7 +1501,10 @@ mod tests {
     fn test_key_signature_accidentals_do_not_overlap() {
         let glyphs = key_signature_glyphs(&key(C_SHARP_MAJOR), Clef::Treble);
         for pair in glyphs.windows(2) {
-            assert!(pair[1].1 >= pair[0].1 + pair[0].0.width, "accidentals overlap");
+            assert!(
+                pair[1].1 >= pair[0].1 + pair[0].0.width,
+                "accidentals overlap"
+            );
         }
         let width = key_signature_width(&key(C_SHARP_MAJOR), Clef::Treble);
         let last = glyphs.last().unwrap();
@@ -1327,12 +1545,17 @@ mod tests {
         let renderer = PdfNotationRenderer::new();
         let time = TimeSignature::new(3, 4);
         let header = renderer.header_layout(&key(A_MAJOR), Some(&time));
-        let (clef, keysig, time_x) = (header.clef_x.unwrap(), header.key_x.unwrap(), header.time_x.unwrap());
+        let (clef, keysig, time_x) = (
+            header.clef_x.unwrap(),
+            header.key_x.unwrap(),
+            header.time_x.unwrap(),
+        );
         assert!(clef < keysig && keysig < time_x);
 
         let space = STAFF_LINE_GAP;
         let clef_to_key = (keysig - (clef + TREBLE_CLEF.width * space)) / space;
-        let key_to_time = (time_x - (keysig + key_signature_width(&key(A_MAJOR), Clef::Treble) * space)) / space;
+        let key_to_time =
+            (time_x - (keysig + key_signature_width(&key(A_MAJOR), Clef::Treble) * space)) / space;
         assert!((clef_to_key - SYMBOL_GAP_SPACES).abs() < 1e-4);
         assert!((key_to_time - SYMBOL_GAP_SPACES).abs() < 1e-4);
         assert!((clef - HEADER_LEFT_PAD_SPACES * space).abs() < 1e-4);
@@ -1347,7 +1570,10 @@ mod tests {
         assert!(header.clef_x.is_some());
         assert!(header.key_x.is_none());
         assert!(header.time_x.is_none());
-        assert!((header.width - (HEADER_LEFT_PAD_SPACES + TREBLE_CLEF.width) * STAFF_LINE_GAP).abs() < 1e-4);
+        assert!(
+            (header.width - (HEADER_LEFT_PAD_SPACES + TREBLE_CLEF.width) * STAFF_LINE_GAP).abs()
+                < 1e-4
+        );
     }
 
     #[test]
@@ -1380,7 +1606,10 @@ mod tests {
             let row_end = slot.x + slot.width * (slot.system_len - slot.index_in_system) as f32;
             let full_row = slot.system_len == measures_per_row(&renderer);
             if full_row {
-                assert!((row_end - (PAGE_WIDTH - PAGE_MARGIN_X)).abs() < 1e-2, "row ends at {row_end}");
+                assert!(
+                    (row_end - (PAGE_WIDTH - PAGE_MARGIN_X)).abs() < 1e-2,
+                    "row ends at {row_end}"
+                );
             }
         }
     }
@@ -1409,11 +1638,19 @@ mod tests {
     #[test]
     fn test_header_flags_turn_symbols_off() {
         let measures = measures_in(1, A_MAJOR, TimeSignature::common_time());
-        let fills = |renderer: PdfNotationRenderer| count_ops(&renderer.render_pages(&measures).unwrap()[0], "f");
+        let fills = |renderer: PdfNotationRenderer| {
+            count_ops(&renderer.render_pages(&measures).unwrap()[0], "f")
+        };
         assert_eq!(fills(PdfNotationRenderer::new()), 1 + 3 + 2);
         assert_eq!(fills(PdfNotationRenderer::new().without_clef()), 3 + 2);
-        assert_eq!(fills(PdfNotationRenderer::new().without_key_signature()), 1 + 2);
-        assert_eq!(fills(PdfNotationRenderer::new().without_time_signature()), 1 + 3);
+        assert_eq!(
+            fills(PdfNotationRenderer::new().without_key_signature()),
+            1 + 2
+        );
+        assert_eq!(
+            fills(PdfNotationRenderer::new().without_time_signature()),
+            1 + 3
+        );
     }
 
     #[test]
@@ -1422,11 +1659,17 @@ mod tests {
         push_glyph(&mut ops, &SHARP, 70.0, 80.0);
         let cm = ops.iter().find(|op| op.operator == "cm").unwrap();
         let values: Vec<f32> = cm.operands.iter().map(|o| o.as_float().unwrap()).collect();
-        assert_eq!(values, vec![STAFF_LINE_GAP, 0.0, 0.0, STAFF_LINE_GAP, 70.0, 80.0]);
+        assert_eq!(
+            values,
+            vec![STAFF_LINE_GAP, 0.0, 0.0, STAFF_LINE_GAP, 70.0, 80.0]
+        );
         assert_eq!(count_ops(&ops, "f"), 1);
         assert_eq!(ops.first().unwrap().operator, "q");
         assert_eq!(ops.last().unwrap().operator, "Q");
-        assert_eq!(count_ops(&ops, "h"), SHARP.ops.iter().filter(|op| **op == PathOp::Close).count());
+        assert_eq!(
+            count_ops(&ops, "h"),
+            SHARP.ops.iter().filter(|op| **op == PathOp::Close).count()
+        );
     }
 
     #[test]
@@ -1478,7 +1721,10 @@ mod tests {
         let (start, end) = ledger_line_extent(100.0, notehead_stem_anchor().0);
         let spaces = (end - start) / STAFF_LINE_GAP;
         assert!(spaces > 2.0 && spaces < 2.2, "length was {spaces} spaces");
-        assert!(((start + end) / 2.0 - 100.0).abs() < 1e-4, "must be centered on the notehead");
+        assert!(
+            ((start + end) / 2.0 - 100.0).abs() < 1e-4,
+            "must be centered on the notehead"
+        );
     }
 
     #[test]
@@ -1510,7 +1756,10 @@ mod tests {
         let up = stem_geometry(50.0, MIDDLE - 10.0, MIDDLE, 0);
         let down = stem_geometry(50.0, MIDDLE + 10.0, MIDDLE, 0);
         assert!(up.x > 50.0, "up-stem belongs on the right of the notehead");
-        assert!(down.x < 50.0, "down-stem belongs on the left of the notehead");
+        assert!(
+            down.x < 50.0,
+            "down-stem belongs on the left of the notehead"
+        );
     }
 
     #[test]
@@ -1538,7 +1787,10 @@ mod tests {
             .filter(|op| op.operator == "m" || op.operator == "c")
             .flat_map(|op| {
                 let values: Vec<f32> = op.operands.iter().map(|o| o.as_float().unwrap()).collect();
-                values.chunks(2).map(|pair| (pair[0], pair[1])).collect::<Vec<_>>()
+                values
+                    .chunks(2)
+                    .map(|pair| (pair[0], pair[1]))
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -1575,7 +1827,10 @@ mod tests {
             push_flags(&mut ops, &stem, 4);
             let stem_left = stem.x - STEM_LINE_WIDTH / 2.0;
             for (x, _) in path_points(&ops) {
-                assert!(x >= stem_left - 1e-4, "flag point at x={x} is left of the stem");
+                assert!(
+                    x >= stem_left - 1e-4,
+                    "flag point at x={x} is left of the stem"
+                );
             }
         }
     }
@@ -1590,7 +1845,9 @@ mod tests {
         let down = stem_geometry(50.0, MIDDLE + 10.0, MIDDLE, 3);
         let mut ops = vec![];
         push_flags(&mut ops, &down, 3);
-        assert!(path_points(&ops).iter().all(|&(_, y)| y >= down.end_y - 1e-4));
+        assert!(path_points(&ops)
+            .iter()
+            .all(|&(_, y)| y >= down.end_y - 1e-4));
     }
 
     #[test]
@@ -1600,15 +1857,27 @@ mod tests {
             let up = stem_geometry(50.0, note_y, MIDDLE, count);
             let mut ops = vec![];
             push_flags(&mut ops, &up, count);
-            let lowest = path_points(&ops).iter().map(|p| p.1).fold(f32::MAX, f32::min);
-            assert!(lowest >= note_y, "{count} flags reach below the notehead center");
+            let lowest = path_points(&ops)
+                .iter()
+                .map(|p| p.1)
+                .fold(f32::MAX, f32::min);
+            assert!(
+                lowest >= note_y,
+                "{count} flags reach below the notehead center"
+            );
 
             let note_y = MIDDLE + 10.0;
             let down = stem_geometry(50.0, note_y, MIDDLE, count);
             let mut ops = vec![];
             push_flags(&mut ops, &down, count);
-            let highest = path_points(&ops).iter().map(|p| p.1).fold(f32::MIN, f32::max);
-            assert!(highest <= note_y, "{count} flags reach above the notehead center");
+            let highest = path_points(&ops)
+                .iter()
+                .map(|p| p.1)
+                .fold(f32::MIN, f32::max);
+            assert!(
+                highest <= note_y,
+                "{count} flags reach above the notehead center"
+            );
         }
     }
 
@@ -1644,11 +1913,18 @@ mod tests {
         // Even positions are lines (including ledger lines), odd positions are spaces
         for position in [-4, -2, 0, 2, 4, 6, 8, 10, 12] {
             let (_, dot_y) = dot_position(50.0, y, position, None, 0, notehead_stem_anchor().0);
-            assert_eq!(dot_y, y + STAFF_STEP, "position {position} is a line, so the dot goes up a space");
+            assert_eq!(
+                dot_y,
+                y + STAFF_STEP,
+                "position {position} is a line, so the dot goes up a space"
+            );
         }
         for position in [-5, -3, -1, 1, 3, 5, 7, 9, 11] {
             let (_, dot_y) = dot_position(50.0, y, position, None, 0, notehead_stem_anchor().0);
-            assert_eq!(dot_y, y, "position {position} is a space, so the dot stays level");
+            assert_eq!(
+                dot_y, y,
+                "position {position} is a space, so the dot stays level"
+            );
         }
     }
 
@@ -1666,9 +1942,14 @@ mod tests {
         let radius = DOT_DIAMETER_SPACES * STAFF_LINE_GAP / 2.0;
         for note_y in [MIDDLE - 10.0, MIDDLE + 10.0] {
             let stem = stem_geometry(50.0, note_y, MIDDLE, 0);
-            let (dot_x, _) = dot_position(50.0, note_y, 1, Some(&stem), 0, notehead_stem_anchor().0);
+            let (dot_x, _) =
+                dot_position(50.0, note_y, 1, Some(&stem), 0, notehead_stem_anchor().0);
             let stem_right = stem.x + STEM_LINE_WIDTH / 2.0;
-            assert!(dot_x - radius > stem_right, "dot touches the stem (up = {})", stem.up);
+            assert!(
+                dot_x - radius > stem_right,
+                "dot touches the stem (up = {})",
+                stem.up
+            );
         }
     }
 
@@ -1682,8 +1963,18 @@ mod tests {
             push_flags(&mut ops, &stem, flags);
             let flag_right = max_curve_x(&ops);
             for position in [0, 1] {
-                let (dot_x, _) = dot_position(50.0, MIDDLE - 10.0, position, Some(&stem), flags, notehead_stem_anchor().0);
-                assert!(dot_x - radius > flag_right, "dot hits {flags} flag(s) at position {position}");
+                let (dot_x, _) = dot_position(
+                    50.0,
+                    MIDDLE - 10.0,
+                    position,
+                    Some(&stem),
+                    flags,
+                    notehead_stem_anchor().0,
+                );
+                assert!(
+                    dot_x - radius > flag_right,
+                    "dot hits {flags} flag(s) at position {position}"
+                );
             }
         }
     }
@@ -1694,14 +1985,20 @@ mod tests {
         let plain = dot_position(50.0, note_y, 1, None, 0, notehead_stem_anchor().0);
         let stem = stem_geometry(50.0, note_y, MIDDLE, 3);
         assert!(!stem.up);
-        assert_eq!(dot_position(50.0, note_y, 1, Some(&stem), 3, notehead_stem_anchor().0), plain);
+        assert_eq!(
+            dot_position(50.0, note_y, 1, Some(&stem), 3, notehead_stem_anchor().0),
+            plain
+        );
     }
 
     #[test]
     fn test_flag_right_extent_is_sane() {
         let width = FLAG_WIDTH_SPACES * STAFF_LINE_GAP;
         let extent = flag_right_extent();
-        assert!(extent > 0.8 * width && extent <= 1.15 * width, "extent was {extent}, width {width}");
+        assert!(
+            extent > 0.8 * width && extent <= 1.15 * width,
+            "extent was {extent}, width {width}"
+        );
     }
 
     #[test]
@@ -1732,15 +2029,28 @@ mod tests {
 
     // Fill count of a bare measure: only noteheads, flags, beams, dots and accidentals fill
     fn bare_fills(measures: &[Measure]) -> usize {
-        let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
-        renderer.render_pages(measures).unwrap().iter().map(|page| count_ops(page, "f")).sum()
+        let renderer = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
+        renderer
+            .render_pages(measures)
+            .unwrap()
+            .iter()
+            .map(|page| count_ops(page, "f"))
+            .sum()
     }
 
-    fn measure_of(time: TimeSignature, notes: &[(u8, crate::domain::NoteDuration, bool)]) -> Measure {
+    fn measure_of(
+        time: TimeSignature,
+        notes: &[(u8, crate::domain::NoteDuration, bool)],
+    ) -> Measure {
         let mut measure = Measure::new(1, time, key(60));
         for &(midi, duration, dotted) in notes {
             let note = Note::new(midi, duration);
-            measure.notes.push(if dotted { note.dotted() } else { note });
+            measure
+                .notes
+                .push(if dotted { note.dotted() } else { note });
         }
         measure
     }
@@ -1751,7 +2061,13 @@ mod tests {
         // Four eighths, then a half note: four noteheads, one beam, and the half note's ring
         let measure = measure_of(
             TimeSignature::common_time(),
-            &[(67, Eighth, false), (69, Eighth, false), (71, Eighth, false), (72, Eighth, false), (64, Half, false)],
+            &[
+                (67, Eighth, false),
+                (69, Eighth, false),
+                (71, Eighth, false),
+                (72, Eighth, false),
+                (64, Half, false),
+            ],
         );
         assert_eq!(bare_fills(&[measure]), 4 + 1 + 1);
     }
@@ -1762,7 +2078,12 @@ mod tests {
         // A lone eighth between quarters: notehead + flag, plus three more noteheads
         let measure = measure_of(
             TimeSignature::common_time(),
-            &[(60, Quarter, false), (62, Eighth, false), (64, Quarter, false), (65, Quarter, false)],
+            &[
+                (60, Quarter, false),
+                (62, Eighth, false),
+                (64, Quarter, false),
+                (65, Quarter, false),
+            ],
         );
         assert_eq!(bare_fills(&[measure]), 4 + 1);
     }
@@ -1771,8 +2092,14 @@ mod tests {
     fn test_notes_are_not_beamed_across_a_barline() {
         use crate::domain::NoteDuration::*;
         // A lone eighth at the end of one measure and another at the start of the next
-        let end = measure_of(TimeSignature::common_time(), &[(60, Quarter, false), (62, Eighth, false)]);
-        let start = measure_of(TimeSignature::common_time(), &[(64, Eighth, false), (65, Quarter, false)]);
+        let end = measure_of(
+            TimeSignature::common_time(),
+            &[(60, Quarter, false), (62, Eighth, false)],
+        );
+        let start = measure_of(
+            TimeSignature::common_time(),
+            &[(64, Eighth, false), (65, Quarter, false)],
+        );
         // Two noteheads and two flags for the eighths, two quarter noteheads
         assert_eq!(bare_fills(&[end, start]), 2 + 2 + 2);
     }
@@ -1780,16 +2107,28 @@ mod tests {
     #[test]
     fn test_six_eight_gets_two_beams_of_three() {
         use crate::domain::NoteDuration::*;
-        let notes: Vec<_> = [67u8, 69, 71, 72, 71, 69].iter().map(|&p| (p, Eighth, false)).collect();
-        assert_eq!(bare_fills(&[measure_of(TimeSignature::new(6, 8), &notes)]), 6 + 2);
+        let notes: Vec<_> = [67u8, 69, 71, 72, 71, 69]
+            .iter()
+            .map(|&p| (p, Eighth, false))
+            .collect();
+        assert_eq!(
+            bare_fills(&[measure_of(TimeSignature::new(6, 8), &notes)]),
+            6 + 2
+        );
     }
 
     #[test]
     fn test_sixteenths_get_two_beams() {
         use crate::domain::NoteDuration::*;
-        let notes: Vec<_> = [64u8, 65, 67, 69].iter().map(|&p| (p, Sixteenth, false)).collect();
+        let notes: Vec<_> = [64u8, 65, 67, 69]
+            .iter()
+            .map(|&p| (p, Sixteenth, false))
+            .collect();
         // Four noteheads and two beams (one is the secondary beam)
-        assert_eq!(bare_fills(&[measure_of(TimeSignature::common_time(), &notes)]), 4 + 2);
+        assert_eq!(
+            bare_fills(&[measure_of(TimeSignature::common_time(), &notes)]),
+            4 + 2
+        );
     }
 
     #[test]
@@ -1806,9 +2145,15 @@ mod tests {
     #[test]
     fn test_every_stem_of_a_beamed_group_is_drawn() {
         use crate::domain::NoteDuration::*;
-        let notes: Vec<_> = [64u8, 65, 67, 69].iter().map(|&p| (p, Eighth, false)).collect();
+        let notes: Vec<_> = [64u8, 65, 67, 69]
+            .iter()
+            .map(|&p| (p, Eighth, false))
+            .collect();
         let measure = measure_of(TimeSignature::common_time(), &notes);
-        let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+        let renderer = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
         let page = &renderer.render_pages(&[measure]).unwrap()[0];
         // 5 staff lines + 1 barline + 4 stems
         assert_eq!(count_ops(page, "S"), 5 + 1 + 4);
@@ -1818,15 +2163,19 @@ mod tests {
     fn test_beamed_notes_carry_accidentals() {
         use crate::domain::NoteDuration::*;
         // C#4 and D#4 eighths beamed together: two noteheads, two sharps, one beam
-        let measure = measure_of(TimeSignature::common_time(), &[(61, Eighth, false), (63, Eighth, false)]);
+        let measure = measure_of(
+            TimeSignature::common_time(),
+            &[(61, Eighth, false), (63, Eighth, false)],
+        );
         assert_eq!(bare_fills(&[measure]), 2 + 2 + 1);
     }
 
     #[test]
     fn test_exercises_from_the_generator_render_with_beams() {
         // End to end: a generated exercise renders, and fewer shapes are needed than with flags
-        let measures = crate::generator::ExerciseGenerator::new(crate::generator::GeneratorConfig::default())
-            .generate_exercise(16);
+        let measures =
+            crate::generator::ExerciseGenerator::new(crate::generator::GeneratorConfig::default())
+                .generate_exercise(16);
         let renderer = PdfNotationRenderer::new();
         let pages = renderer.render_pages(&measures).unwrap();
         assert!(!pages.is_empty() && pages.iter().all(|page| !page.is_empty()));
@@ -1835,9 +2184,15 @@ mod tests {
     #[test]
     fn test_many_generated_exercises_render_without_failing() {
         use crate::domain::KeyMode;
-        use crate::generator::{ExerciseGenerator, GeneratorConfig, IntervalSelection, OctaveRange};
+        use crate::generator::{
+            ExerciseGenerator, GeneratorConfig, IntervalSelection, OctaveRange,
+        };
         for root in 47u8..=71 {
-            for selection in [IntervalSelection::default(), IntervalSelection::steps_only(), IntervalSelection::larger_intervals()] {
+            for selection in [
+                IntervalSelection::default(),
+                IntervalSelection::steps_only(),
+                IntervalSelection::larger_intervals(),
+            ] {
                 let mut config = GeneratorConfig::default();
                 config.key = crate::domain::Key::new(root, KeyMode::Major);
                 config.interval_selection = selection;
@@ -1852,7 +2207,10 @@ mod tests {
     // ----- bass clef -----
 
     fn bass_position(midi: u8, key_root: u8) -> i32 {
-        staff_position(&crate::presentation::spelling::spell_pitch(midi, &key(key_root), false), Clef::Bass)
+        staff_position(
+            &crate::presentation::spelling::spell_pitch(midi, &key(key_root), false),
+            Clef::Bass,
+        )
     }
 
     #[test]
@@ -1874,8 +2232,14 @@ mod tests {
     #[test]
     fn test_middle_c_is_two_octaves_apart_between_clefs() {
         // The same written position means a different note: the bottom line is E4 in treble, G2 in bass
-        let treble_bottom = staff_position(&crate::presentation::spelling::spell_pitch(64, &key(60), false), Clef::Treble);
-        let bass_bottom = staff_position(&crate::presentation::spelling::spell_pitch(43, &key(60), false), Clef::Bass);
+        let treble_bottom = staff_position(
+            &crate::presentation::spelling::spell_pitch(64, &key(60), false),
+            Clef::Treble,
+        );
+        let bass_bottom = staff_position(
+            &crate::presentation::spelling::spell_pitch(43, &key(60), false),
+            Clef::Bass,
+        );
         assert_eq!(treble_bottom, bass_bottom);
         // Middle C: one ledger line below treble, one above bass
         assert_eq!(position_in(60, 60), -2);
@@ -1884,10 +2248,16 @@ mod tests {
 
     #[test]
     fn test_bass_key_signature_positions() {
-        let sharps: Vec<i32> = key_signature_glyphs(&key(C_SHARP_MAJOR), Clef::Bass).iter().map(|g| g.2).collect();
+        let sharps: Vec<i32> = key_signature_glyphs(&key(C_SHARP_MAJOR), Clef::Bass)
+            .iter()
+            .map(|g| g.2)
+            .collect();
         // F C G D A E B: fourth line, second space, fourth space, middle line, first space, third space, second line
         assert_eq!(sharps, vec![6, 3, 7, 4, 1, 5, 2]);
-        let flats: Vec<i32> = key_signature_glyphs(&key(C_FLAT_MAJOR), Clef::Bass).iter().map(|g| g.2).collect();
+        let flats: Vec<i32> = key_signature_glyphs(&key(C_FLAT_MAJOR), Clef::Bass)
+            .iter()
+            .map(|g| g.2)
+            .collect();
         // B E A D G C F: second line, third space, first space, middle line, bottom line, second space,
         // and F flat in the space just below the staff
         assert_eq!(flats, vec![2, 5, 1, 4, 0, 3, -1]);
@@ -1895,10 +2265,15 @@ mod tests {
 
     #[test]
     fn test_bass_key_signature_is_the_treble_pattern_a_third_lower() {
-        let shifted = |glyphs: Vec<(Glyph, f32, i32)>| -> Vec<i32> { glyphs.iter().map(|g| g.2 + 2).collect() };
+        let shifted = |glyphs: Vec<(Glyph, f32, i32)>| -> Vec<i32> {
+            glyphs.iter().map(|g| g.2 + 2).collect()
+        };
         for root in [C_SHARP_MAJOR, C_FLAT_MAJOR, A_MAJOR, B_FLAT_MAJOR] {
             let bass = shifted(key_signature_glyphs(&key(root), Clef::Bass));
-            let treble: Vec<i32> = key_signature_glyphs(&key(root), Clef::Treble).iter().map(|g| g.2).collect();
+            let treble: Vec<i32> = key_signature_glyphs(&key(root), Clef::Treble)
+                .iter()
+                .map(|g| g.2)
+                .collect();
             assert_eq!(bass, treble, "root {root}");
         }
     }
@@ -1907,7 +2282,10 @@ mod tests {
     fn test_bass_key_signature_needs_no_ledger_lines() {
         for root in [C_SHARP_MAJOR, C_FLAT_MAJOR] {
             for (_, _, position) in key_signature_glyphs(&key(root), Clef::Bass) {
-                assert!(ledger_line_positions(position).is_empty(), "position {position}");
+                assert!(
+                    ledger_line_positions(position).is_empty(),
+                    "position {position}"
+                );
             }
         }
     }
@@ -1915,7 +2293,10 @@ mod tests {
     #[test]
     fn test_bass_key_signature_keeps_the_same_widths_and_offsets() {
         for root in [60, A_MAJOR, B_FLAT_MAJOR, C_SHARP_MAJOR] {
-            assert_eq!(key_signature_width(&key(root), Clef::Bass), key_signature_width(&key(root), Clef::Treble));
+            assert_eq!(
+                key_signature_width(&key(root), Clef::Bass),
+                key_signature_width(&key(root), Clef::Treble)
+            );
         }
     }
 
@@ -1948,24 +2329,42 @@ mod tests {
     #[test]
     fn test_header_uses_the_clef_width() {
         let treble = PdfNotationRenderer::new().header_layout(&key(60), None);
-        let bass = PdfNotationRenderer::new().with_clef(Clef::Bass).header_layout(&key(60), None);
-        assert!((treble.width - (HEADER_LEFT_PAD_SPACES + TREBLE_CLEF.width) * STAFF_LINE_GAP).abs() < 1e-3);
-        assert!((bass.width - (HEADER_LEFT_PAD_SPACES + BASS_CLEF.width) * STAFF_LINE_GAP).abs() < 1e-3);
+        let bass = PdfNotationRenderer::new()
+            .with_clef(Clef::Bass)
+            .header_layout(&key(60), None);
+        assert!(
+            (treble.width - (HEADER_LEFT_PAD_SPACES + TREBLE_CLEF.width) * STAFF_LINE_GAP).abs()
+                < 1e-3
+        );
+        assert!(
+            (bass.width - (HEADER_LEFT_PAD_SPACES + BASS_CLEF.width) * STAFF_LINE_GAP).abs() < 1e-3
+        );
     }
 
     #[test]
     fn test_clef_glyph_is_drawn_on_its_reference_line() {
-        let renderer = PdfNotationRenderer::new().with_clef(Clef::Bass).without_key_signature().without_time_signature();
+        let renderer = PdfNotationRenderer::new()
+            .with_clef(Clef::Bass)
+            .without_key_signature()
+            .without_time_signature();
         let measure = Measure::new(1, TimeSignature::common_time(), key(60));
         let page = &renderer.render_pages(&[measure]).unwrap()[0];
         // The only filled shape is the clef; read the vertical position from its scaling transform
         let cm = page.iter().find(|op| op.operator == "cm").unwrap();
         let values: Vec<f32> = cm.operands.iter().map(|o| o.as_float().unwrap()).collect();
         let bottom = renderer.first_staff_bottom_y();
-        assert!((values[5] - (bottom + 6.0 * STAFF_STEP)).abs() < 1e-3, "clef y {}", values[5]);
+        assert!(
+            (values[5] - (bottom + 6.0 * STAFF_STEP)).abs() < 1e-3,
+            "clef y {}",
+            values[5]
+        );
 
-        let treble = PdfNotationRenderer::new().without_key_signature().without_time_signature();
-        let page = &treble.render_pages(&[Measure::new(1, TimeSignature::common_time(), key(60))]).unwrap()[0];
+        let treble = PdfNotationRenderer::new()
+            .without_key_signature()
+            .without_time_signature();
+        let page = &treble
+            .render_pages(&[Measure::new(1, TimeSignature::common_time(), key(60))])
+            .unwrap()[0];
         let cm = page.iter().find(|op| op.operator == "cm").unwrap();
         let values: Vec<f32> = cm.operands.iter().map(|o| o.as_float().unwrap()).collect();
         assert!((values[5] - (bottom + 2.0 * STAFF_STEP)).abs() < 1e-3);
@@ -1976,7 +2375,12 @@ mod tests {
         let page = renderer.render_pages(&[measure]).unwrap().remove(0);
         page.iter()
             .filter(|op| op.operator == "cm")
-            .map(|op| op.operands.iter().map(|o| o.as_float().unwrap()).collect::<Vec<f32>>())
+            .map(|op| {
+                op.operands
+                    .iter()
+                    .map(|o| o.as_float().unwrap())
+                    .collect::<Vec<f32>>()
+            })
             .filter(|v| v[1].abs() > 1e-4)
             .map(|v| v[5])
             .collect()
@@ -1990,7 +2394,10 @@ mod tests {
             m.notes.push(Note::new(midi, Quarter));
             m
         };
-        let treble = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+        let treble = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
         let bass = PdfNotationRenderer::new()
             .with_clef(Clef::Bass)
             .without_clef()
@@ -2041,15 +2448,23 @@ mod tests {
     #[test]
     fn test_bass_exercises_render_in_every_key_without_failing() {
         use crate::domain::KeyMode;
-        use crate::generator::{ExerciseGenerator, GeneratorConfig, IntervalSelection, OctaveRange};
+        use crate::generator::{
+            ExerciseGenerator, GeneratorConfig, IntervalSelection, OctaveRange,
+        };
         for root in 47u8..=71 {
-            for selection in [IntervalSelection::default(), IntervalSelection::larger_intervals()] {
+            for selection in [
+                IntervalSelection::default(),
+                IntervalSelection::larger_intervals(),
+            ] {
                 let mut config = GeneratorConfig::default();
                 config.key = crate::domain::Key::new(root, KeyMode::Major);
                 config.interval_selection = selection;
                 config.range = OctaveRange::new(36, 59); // the default bass range, C2 to B3
                 let measures = ExerciseGenerator::new(config).generate_exercise(12);
-                let pages = PdfNotationRenderer::new().with_clef(Clef::Bass).render_pages(&measures).unwrap();
+                let pages = PdfNotationRenderer::new()
+                    .with_clef(Clef::Bass)
+                    .render_pages(&measures)
+                    .unwrap();
                 assert!(!pages.is_empty());
             }
         }
@@ -2068,7 +2483,10 @@ mod tests {
             .without_clef()
             .without_key_signature()
             .without_time_signature();
-        assert_eq!(count_ops(&renderer.render_pages(&[measure]).unwrap()[0], "f"), 4 + 1);
+        assert_eq!(
+            count_ops(&renderer.render_pages(&[measure]).unwrap()[0], "f"),
+            4 + 1
+        );
     }
 
     // ----- whole, half and quarter notes -----
@@ -2078,9 +2496,16 @@ mod tests {
     fn shape_of(duration: crate::domain::NoteDuration, midi: u8) -> (usize, usize, usize) {
         let mut measure = Measure::new(1, TimeSignature::common_time(), key(60));
         measure.notes.push(Note::new(midi, duration));
-        let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+        let renderer = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
         let page = renderer.render_pages(&[measure]).unwrap().remove(0);
-        (count_ops(&page, "S"), count_ops(&page, "f"), count_ops(&page, "h"))
+        (
+            count_ops(&page, "S"),
+            count_ops(&page, "f"),
+            count_ops(&page, "h"),
+        )
     }
 
     fn strokes_and_fills(duration: crate::domain::NoteDuration, midi: u8) -> (usize, usize) {
@@ -2132,7 +2557,11 @@ mod tests {
     fn test_whole_notes_never_get_a_stem_at_any_pitch() {
         use crate::domain::NoteDuration::Whole;
         for midi in 36u8..=96 {
-            assert_eq!(strokes_and_fills(Whole, midi).0, BASE_STROKES + ledger_strokes(midi), "midi {midi}");
+            assert_eq!(
+                strokes_and_fills(Whole, midi).0,
+                BASE_STROKES + ledger_strokes(midi),
+                "midi {midi}"
+            );
         }
     }
 
@@ -2146,7 +2575,11 @@ mod tests {
         use crate::domain::NoteDuration::Half;
         for midi in 36u8..=96 {
             let (strokes, _) = strokes_and_fills(Half, midi);
-            assert_eq!(strokes, BASE_STROKES + ledger_strokes(midi) + 1, "midi {midi}");
+            assert_eq!(
+                strokes,
+                BASE_STROKES + ledger_strokes(midi) + 1,
+                "midi {midi}"
+            );
         }
     }
 
@@ -2157,16 +2590,26 @@ mod tests {
         let stem_line = |duration, midi| -> Vec<f32> {
             let mut measure = Measure::new(1, TimeSignature::common_time(), key(60));
             measure.notes.push(Note::new(midi, duration));
-            let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+            let renderer = PdfNotationRenderer::new()
+                .without_clef()
+                .without_key_signature()
+                .without_time_signature();
             let page = renderer.render_pages(&[measure]).unwrap().remove(0);
             // The stem is the last line drawn
             let last_line = page.iter().rposition(|op| op.operator == "l").unwrap();
             let start = &page[last_line - 1];
             let end = &page[last_line];
-            [start, end].iter().flat_map(|op| op.operands.iter().map(|o| o.as_float().unwrap())).collect()
+            [start, end]
+                .iter()
+                .flat_map(|op| op.operands.iter().map(|o| o.as_float().unwrap()))
+                .collect()
         };
         for midi in [55u8, 62, 67, 71, 72, 79, 84] {
-            assert_eq!(stem_line(Half, midi), stem_line(Quarter, midi), "midi {midi}");
+            assert_eq!(
+                stem_line(Half, midi),
+                stem_line(Quarter, midi),
+                "midi {midi}"
+            );
         }
     }
 
@@ -2176,7 +2619,10 @@ mod tests {
         let stem_goes_up = |midi: u8| -> bool {
             let mut measure = Measure::new(1, TimeSignature::common_time(), key(60));
             measure.notes.push(Note::new(midi, Half));
-            let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+            let renderer = PdfNotationRenderer::new()
+                .without_clef()
+                .without_key_signature()
+                .without_time_signature();
             let page = renderer.render_pages(&[measure]).unwrap().remove(0);
             let last_line = page.iter().rposition(|op| op.operator == "l").unwrap();
             let start_y = page[last_line - 1].operands[1].as_float().unwrap();
@@ -2194,7 +2640,10 @@ mod tests {
         use crate::domain::NoteDuration::Half;
         let mut measure = Measure::new(1, TimeSignature::common_time(), key(60));
         measure.notes.push(Note::new(67, Half).dotted());
-        let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+        let renderer = PdfNotationRenderer::new()
+            .without_clef()
+            .without_key_signature()
+            .without_time_signature();
         let page = renderer.render_pages(&[measure]).unwrap().remove(0);
         assert_eq!(count_ops(&page, "f"), 2, "the ring and the dot");
     }
@@ -2217,7 +2666,11 @@ mod tests {
         let cm = ops.iter().find(|op| op.operator == "cm").unwrap();
         let values: Vec<f32> = cm.operands.iter().map(|o| o.as_float().unwrap()).collect();
         let half = WHOLE_NOTEHEAD.width * STAFF_LINE_GAP / 2.0;
-        assert!((values[4] + half - 100.0).abs() < 1e-3, "left edge at {}", values[4]);
+        assert!(
+            (values[4] + half - 100.0).abs() < 1e-3,
+            "left edge at {}",
+            values[4]
+        );
         assert_eq!(values[5], 80.0);
         assert_eq!(count_ops(&ops, "f"), 1);
         // Two contours: the outer edge and the hole
@@ -2233,7 +2686,10 @@ mod tests {
         // Still centred, and still just over two noteheads wide (Gould)
         assert!(((whole_start + whole_end) / 2.0 - 100.0).abs() < 1e-4);
         let head_width = 2.0 * notehead_half_width(Whole);
-        assert!(whole_end - whole_start > head_width && whole_end - whole_start < head_width + 3.0 * LEDGER_LINE_EXTENSION);
+        assert!(
+            whole_end - whole_start > head_width
+                && whole_end - whole_start < head_width + 3.0 * LEDGER_LINE_EXTENSION
+        );
     }
 
     #[test]
@@ -2242,10 +2698,16 @@ mod tests {
         let half_width = notehead_half_width(Whole);
         let glyph = SHARP;
         let origin = accidental_origin_x(100.0, false, &glyph, half_width);
-        assert!(origin + glyph.width * STAFF_LINE_GAP < 100.0 - half_width, "the sharp overlaps the head");
+        assert!(
+            origin + glyph.width * STAFF_LINE_GAP < 100.0 - half_width,
+            "the sharp overlaps the head"
+        );
         let (dot_x, _) = dot_position(100.0, 50.0, 1, None, 0, half_width);
         let radius = DOT_DIAMETER_SPACES * STAFF_LINE_GAP / 2.0;
-        assert!(dot_x - radius > 100.0 + half_width, "the dot overlaps the head");
+        assert!(
+            dot_x - radius > 100.0 + half_width,
+            "the dot overlaps the head"
+        );
     }
 
     #[test]
@@ -2254,8 +2716,13 @@ mod tests {
         let dot_centre_x = |dotted: bool| -> f32 {
             let mut measure = Measure::new(1, TimeSignature::common_time(), key(60));
             let note = Note::new(67, Whole);
-            measure.notes.push(if dotted { note.dotted() } else { note });
-            let renderer = PdfNotationRenderer::new().without_clef().without_key_signature().without_time_signature();
+            measure
+                .notes
+                .push(if dotted { note.dotted() } else { note });
+            let renderer = PdfNotationRenderer::new()
+                .without_clef()
+                .without_key_signature()
+                .without_time_signature();
             let page = renderer.render_pages(&[measure]).unwrap().remove(0);
             // The last transform in the page is the dot's, when there is one
             let cm = page.iter().rev().find(|op| op.operator == "cm").unwrap();
@@ -2264,6 +2731,10 @@ mod tests {
         let head_left = dot_centre_x(false);
         let dot = dot_centre_x(true);
         let note_x = head_left + notehead_half_width(Whole);
-        assert!(dot > note_x + notehead_half_width(Whole), "dot at {dot}, head ends at {}", note_x + notehead_half_width(Whole));
+        assert!(
+            dot > note_x + notehead_half_width(Whole),
+            "dot at {dot}, head ends at {}",
+            note_x + notehead_half_width(Whole)
+        );
     }
 }

@@ -2,14 +2,14 @@
 
 pub mod config;
 pub mod melody;
-pub mod rules;
 pub mod musical_phrase;
+pub mod rules;
 
-pub use config::{NoteDurationSelection, IntervalSelection};
+pub use config::{IntervalSelection, NoteDurationSelection};
 pub use melody::Melody;
 pub use rules::GenerationRules;
 
-use crate::domain::{Note, NoteDuration, TimeSignature, Key, Measure};
+use crate::domain::{Key, Measure, Note, NoteDuration, TimeSignature};
 
 /// Configuration for the exercise generator
 pub struct GeneratorConfig {
@@ -47,7 +47,7 @@ impl OctaveRange {
         let min_octave = (min_midi / 12) as i32;
         let max_octave = (max_midi / 12) as i32;
         let center_octave = (min_octave + max_octave) / 2;
-        
+
         OctaveRange {
             min_octave,
             max_octave,
@@ -92,7 +92,7 @@ impl ExerciseGenerator {
     pub fn generate_exercise(&self, num_measures: u32) -> Vec<Measure> {
         let time_signature = self.config.time_signature;
         let key_signature = self.config.key.signature();
-        
+
         let range = self.config.range;
         let rules = GenerationRules::new(&self.config.interval_selection);
         let melody = Melody::new(&self.config.key, range.min_midi(), range.max_midi(), rules);
@@ -126,12 +126,15 @@ impl ExerciseGenerator {
     /// Select a note duration that fits within the remaining space
     fn select_duration(&self, remaining_space: f64) -> NoteDuration {
         // Filter durations that fit in the remaining space
-        let valid_durations: Vec<NoteDuration> = self.config.duration_selection.get_valid_durations(remaining_space);
-        
+        let valid_durations: Vec<NoteDuration> = self
+            .config
+            .duration_selection
+            .get_valid_durations(remaining_space);
+
         if valid_durations.is_empty() {
             return NoteDuration::Quarter; // fallback
         }
-        
+
         // Use weighted selection based on user preferences
         self.weighted_duration_selection(&valid_durations)
     }
@@ -139,16 +142,14 @@ impl ExerciseGenerator {
     /// Weighted selection of duration based on user preferences
     fn weighted_duration_selection(&self, durations: &[NoteDuration]) -> NoteDuration {
         let preferences = &self.config.duration_selection;
-        
+
         // Calculate weights based on user preferences
-        let total_weight: u32 = durations.iter()
-            .map(|d| preferences.weight(*d))
-            .sum();
-        
+        let total_weight: u32 = durations.iter().map(|d| preferences.weight(*d)).sum();
+
         if total_weight == 0 {
             return durations[0]; // fallback
         }
-        
+
         // Simple weighted random selection
         let mut rng = rand::random::<u32>() % total_weight;
         for duration in durations {
@@ -158,7 +159,7 @@ impl ExerciseGenerator {
             }
             rng -= weight;
         }
-        
+
         durations[0] // fallback
     }
 }
@@ -185,7 +186,10 @@ mod tests {
     }
 
     fn all_pitches(measures: &[Measure]) -> Vec<u8> {
-        measures.iter().flat_map(|m| m.notes.iter().map(|n| n.midi_number)).collect()
+        measures
+            .iter()
+            .flat_map(|m| m.notes.iter().map(|n| n.midi_number))
+            .collect()
     }
 
     #[test]
@@ -194,7 +198,10 @@ mod tests {
         for root in 47u8..=71 {
             let key = Key::new(root, KeyMode::Major);
             for pitch in all_pitches(&exercise(config_in(root, KeyMode::Major), 24)) {
-                assert!(key.contains_note(pitch), "root {root}: {pitch} is not in the key");
+                assert!(
+                    key.contains_note(pitch),
+                    "root {root}: {pitch} is not in the key"
+                );
             }
         }
     }
@@ -228,7 +235,10 @@ mod tests {
         let measures = exercise(config_in(67, KeyMode::Major), 12);
         assert_eq!(measures.len(), 12);
         for measure in &measures {
-            assert_eq!(measure.key_signature, Key::new(67, KeyMode::Major).signature());
+            assert_eq!(
+                measure.key_signature,
+                Key::new(67, KeyMode::Major).signature()
+            );
             assert!(!measure.notes.is_empty());
             assert!(
                 (measure.total_duration() - measure.time_signature.total_beats()).abs() < 1e-9,
@@ -245,7 +255,11 @@ mod tests {
         let measures = exercise(config_in(60, KeyMode::Major), 40);
         let starts: std::collections::HashSet<u8> =
             measures.iter().map(|m| m.notes[0].midi_number).collect();
-        assert!(starts.len() >= 4, "measures start on only {} different notes", starts.len());
+        assert!(
+            starts.len() >= 4,
+            "measures start on only {} different notes",
+            starts.len()
+        );
     }
 
     #[test]
@@ -258,7 +272,12 @@ mod tests {
         for pair in pitches.windows(2) {
             let a = scale.iter().position(|&n| n == pair[0]).unwrap() as i32;
             let b = scale.iter().position(|&n| n == pair[1]).unwrap() as i32;
-            assert!((a - b).abs() <= 1, "{} to {} is more than a step", pair[0], pair[1]);
+            assert!(
+                (a - b).abs() <= 1,
+                "{} to {} is more than a step",
+                pair[0],
+                pair[1]
+            );
         }
     }
 

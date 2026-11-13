@@ -90,9 +90,15 @@ mod tests {
     fn test_reference_line_holds_the_named_note() {
         // Treble: G4 sits on the reference line. Bass: F3 does.
         let g4 = 4 * 7 + 4;
-        assert_eq!(g4 - Clef::Treble.bottom_line_diatonic_index(), Clef::Treble.reference_line_steps());
+        assert_eq!(
+            g4 - Clef::Treble.bottom_line_diatonic_index(),
+            Clef::Treble.reference_line_steps()
+        );
         let f3 = 3 * 7 + 3;
-        assert_eq!(f3 - Clef::Bass.bottom_line_diatonic_index(), Clef::Bass.reference_line_steps());
+        assert_eq!(
+            f3 - Clef::Bass.bottom_line_diatonic_index(),
+            Clef::Bass.reference_line_steps()
+        );
     }
 
     #[test]

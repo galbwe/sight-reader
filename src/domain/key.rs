@@ -63,7 +63,10 @@ impl Key {
             KeyMode::Minor => [0, 2, 3, 5, 7, 8, 10],
         };
         let tonic = self.tonic_pitch_class() as i32;
-        intervals.iter().map(|interval| (tonic + interval) % 12).collect()
+        intervals
+            .iter()
+            .map(|interval| (tonic + interval) % 12)
+            .collect()
     }
 
     /// Get the dominant key (fifth above)
@@ -96,7 +99,9 @@ impl fmt::Display for Key {
 
 impl Key {
     fn root_note_name(&self) -> &'static str {
-        const NAMES: &[&str] = &["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const NAMES: &[&str] = &[
+            "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+        ];
         NAMES[self.root_note as usize % 12]
     }
 }
@@ -119,9 +124,9 @@ impl KeySignature {
         // G major / E minor = 1 sharp
         // D major / B minor = 2 sharps
         // etc.
-        
+
         let (accidental_count, leading_note) = Self::calculate_signature(root_note, mode);
-        
+
         KeySignature {
             accidental_count,
             mode,
@@ -131,7 +136,7 @@ impl KeySignature {
 
     fn calculate_signature(root_note: u8, mode: KeyMode) -> (i32, u8) {
         let root_step = root_note % 12; // Get the note step within the octave
-        
+
         // First check if this is a flat key by looking at root_note directly
         // For flat keys, use root values that don't match the sharp key pattern
         // F=53 (F4), Bb=58 (Bb4), Eb=51 (Eb4), Ab=56 (Ab4), Db=49 (Db4), Gb=54 (Gb4), Cb=47 (Cb4)
@@ -139,38 +144,38 @@ impl KeySignature {
             53 | 58 | 51 | 56 | 49 | 54 | 47 => true,
             _ => false,
         };
-        
+
         if is_flat_key {
             // Use root_step for flat key lookup
             let flats = match root_step as i32 {
-                5 => 1,   // F
-                10 => 2,  // Bb
-                3 => 3,   // Eb
-                8 => 4,   // Ab
-                1 => 5,   // Db
-                6 => 6,   //Gb
-                11 => 7,  //Cb
+                5 => 1,  // F
+                10 => 2, // Bb
+                3 => 3,  // Eb
+                8 => 4,  // Ab
+                1 => 5,  // Db
+                6 => 6,  //Gb
+                11 => 7, //Cb
                 _ => 0,
             };
             return (-flats as i32, Self::flat_root(flats as u8));
         }
-        
+
         match mode {
             KeyMode::Major => {
                 // Circle of fifths for major keys
                 // C=0, G=1, D=2, A=3, E=4, B=5, F#=6, Cb=7
                 let fifths_from_c = match root_step {
-                    0 => 0,   // C
-                    7 => 1,   // G
-                    2 => 2,   // D
-                    9 => 3,   // A
-                    4 => 4,   // E
-                    11 => 5,  // B
-                    6 => 6,   // F#
-                    1 => 7,   // C#
-                    _ => -1i8,  // Flat keys (simplified)
+                    0 => 0,    // C
+                    7 => 1,    // G
+                    2 => 2,    // D
+                    9 => 3,    // A
+                    4 => 4,    // E
+                    11 => 5,   // B
+                    6 => 6,    // F#
+                    1 => 7,    // C#
+                    _ => -1i8, // Flat keys (simplified)
                 };
-                
+
                 if fifths_from_c >= 0 {
                     (fifths_from_c as i32, Self::sharp_root(fifths_from_c as u8))
                 } else {
@@ -228,7 +233,7 @@ impl KeySignature {
         // F#C#G#D#A#E#B# for sharps
         // BbEbAbDbGbCbFb for flats
         match self.accidental_count {
-            1..=7 => vec![3, 0, 4, 1, 5, 2, 6], // F#C#G#D#A#E#B#
+            1..=7 => vec![3, 0, 4, 1, 5, 2, 6],   // F#C#G#D#A#E#B#
             -7..=-1 => vec![6, 2, 5, 1, 4, 0, 3], // BbEbAbDbGbCbFb
             _ => vec![],
         }
@@ -285,9 +290,15 @@ mod tests {
     #[test]
     fn test_scale_is_transposed_to_the_root() {
         // G major: G A B C D E F#
-        assert_eq!(Key::new(67, KeyMode::Major).scale(), vec![7, 9, 11, 0, 2, 4, 6]);
+        assert_eq!(
+            Key::new(67, KeyMode::Major).scale(),
+            vec![7, 9, 11, 0, 2, 4, 6]
+        );
         // Bb major (root 58): Bb C D Eb F G A
-        assert_eq!(Key::new(58, KeyMode::Major).scale(), vec![10, 0, 2, 3, 5, 7, 9]);
+        assert_eq!(
+            Key::new(58, KeyMode::Major).scale(),
+            vec![10, 0, 2, 3, 5, 7, 9]
+        );
     }
 
     #[test]
@@ -317,11 +328,19 @@ mod tests {
         for root in 48u8..60 {
             let key = Key::new(root, KeyMode::Major);
             let signature = key.signature();
-            let black_keys = key.scale().iter().filter(|pc| [1, 3, 6, 8, 10].contains(pc)).count();
+            let black_keys = key
+                .scale()
+                .iter()
+                .filter(|pc| [1, 3, 6, 8, 10].contains(pc))
+                .count();
             // Every key has as many black-key scale notes as its signature has accidentals,
             // except C# / Cb style spellings where white keys carry accidentals
             if signature.accidental_count.abs() <= 5 {
-                assert_eq!(black_keys as i32, signature.accidental_count.abs(), "root {root}");
+                assert_eq!(
+                    black_keys as i32,
+                    signature.accidental_count.abs(),
+                    "root {root}"
+                );
             }
         }
     }

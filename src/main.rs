@@ -41,33 +41,34 @@ fn main() {
         duration_selection: options.duration_selection,
         interval_selection: options.interval_selection,
     };
-    
+
     // println!("DEBUG: Selected key: {}", config.key);
     // println!("DEBUG: Key signature: {}", config.key.signature());
 
     // Create generator
     let generator = ExerciseGenerator::new(config);
-    
+
     // Generate exercise
     let measures = generator.generate_exercise(num_measures);
-    
+
     // Get renderer and output
     match output_format.as_str() {
         "ascii" => {
             println!("Sight Reading Trainer");
             println!("====================\n");
-            
+
             let renderer = get_renderer("ascii");
             let output = renderer.render_measures(&measures);
-            
+
             println!("{}", output);
         }
         "pdf" => {
             let output_path = output_file.unwrap_or_else(|| "exercise.pdf".to_string());
             let pdf_renderer = presentation::PdfNotationRenderer::new().with_clef(clef);
-            pdf_renderer.save_to_file(&measures, &output_path)
+            pdf_renderer
+                .save_to_file(&measures, &output_path)
                 .expect(&format!("Failed to save PDF to {}", output_path));
-            
+
             println!("PDF saved to: {}", output_path);
         }
         _ => {
@@ -217,8 +218,12 @@ fn parse_args(args: &[String]) -> Result<Command, String> {
                 clef = Clef::from_name(name)
                     .ok_or_else(|| format!("unknown clef '{}' (use treble or bass)", name))?;
             }
-            "--durations" | "-d" => duration_selection = parse_durations(flag_value(args, i, "--durations")?),
-            "--intervals" | "-i" => interval_selection = parse_intervals(flag_value(args, i, "--intervals")?),
+            "--durations" | "-d" => {
+                duration_selection = parse_durations(flag_value(args, i, "--durations")?)
+            }
+            "--intervals" | "-i" => {
+                interval_selection = parse_intervals(flag_value(args, i, "--intervals")?)
+            }
             "--format" | "-f" => output_format = flag_value(args, i, "--format")?.to_string(),
             "--output" => output_file = Some(flag_value(args, i, "--output")?.to_string()),
             "--midi" => midi_file = Some(flag_value(args, i, "--midi")?.to_string()),
@@ -277,7 +282,8 @@ const MAX_OCTAVES: u8 = 10;
 fn octave_midi_range(count: u8, clef: Clef) -> (u8, u8) {
     let count = count.max(1) as i32;
     let middle_line = clef.middle_line_midi() as f32;
-    let centre = |lowest_octave: i32| ((lowest_octave + 1) * 12) as f32 + (count * 12) as f32 / 2.0 - 0.5;
+    let centre =
+        |lowest_octave: i32| ((lowest_octave + 1) * 12) as f32 + (count * 12) as f32 / 2.0 - 0.5;
 
     // On a tie the lower range wins
     let lowest_octave = (0..=9)
@@ -295,27 +301,29 @@ fn octave_midi_range(count: u8, clef: Clef) -> (u8, u8) {
 }
 
 fn parse_key(s: &str) -> u8 {
-    const NOTES: &[&str] = &["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const NOTES: &[&str] = &[
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
     const FLATS: &[&str] = &["Db", "Eb", "Gb", "Ab", "Bb"];
-    
+
     let s_lower = s.to_lowercase();
-    
+
     for (i, &flat) in FLATS.iter().enumerate() {
         if s_lower == flat.to_lowercase() {
             // For flat keys, use specific root values that will be recognized
             // by the is_flat_key check in calculate_signature
             let root_note = match flat {
-                "Db" => 49,  // 5 flats (Db4 = 4*12 + 1 = 49)
-                "Eb" => 51,  // 3 flats (Eb4 = 4*12 + 3 = 51)
-                "Gb" => 54,  // 6 flats (Gb4 = 4*12 + 6 = 54)
-                "Ab" => 56,  // 4 flats (Ab4 = 4*12 + 8 = 56)
-                "Bb" => 58,  // 2 flats (Bb4 = 4*12 + 10 = 58)
-                _ => 53,     // F4 as default
+                "Db" => 49, // 5 flats (Db4 = 4*12 + 1 = 49)
+                "Eb" => 51, // 3 flats (Eb4 = 4*12 + 3 = 51)
+                "Gb" => 54, // 6 flats (Gb4 = 4*12 + 6 = 54)
+                "Ab" => 56, // 4 flats (Ab4 = 4*12 + 8 = 56)
+                "Bb" => 58, // 2 flats (Bb4 = 4*12 + 10 = 58)
+                _ => 53,    // F4 as default
             };
             return root_note;
         }
     }
-    
+
     // Check for sharps and naturals
     let s_upper = s.to_uppercase();
     for (i, &note) in NOTES.iter().enumerate() {
@@ -324,23 +332,16 @@ fn parse_key(s: &str) -> u8 {
             return (octave as u8) * 12 + i as u8;
         }
     }
-    
+
     60u8 // Default to C4
 }
 
 fn parse_durations(s: &str) -> generator::config::NoteDurationSelection {
     match s.to_lowercase().as_str() {
         "simple" => generator::config::NoteDurationSelection::simple_durations(),
-        "quarter" => {
-            let mut sel = generator::config::NoteDurationSelection::default();
-            sel.whole = generator::config::DurationWeight::Disabled;
-            sel.half = generator::config::DurationWeight::Disabled;
-            sel.dotted_quarter = false;
-            sel.dotted_eighth = false;
-            sel.triplet_quarter = false;
-            sel.triplet_eighth = false;
-            sel
-        }
+        "quarter" => generator::config::NoteDurationSelection::quarter_notes(),
+        "eighth" => generator::config::NoteDurationSelection::eighth_notes(),
+        "sixteenth" => generator::config::NoteDurationSelection::sixteenth_notes(),
         "dotted" => {
             let mut sel = generator::config::NoteDurationSelection::default();
             sel.whole = generator::config::DurationWeight::Disabled;
@@ -367,17 +368,25 @@ fn print_help() {
     println!("\nOptions:");
     println!("  -m, --measures <COUNT>   Number of measures to generate (default: 4)");
     println!("  -k, --key <KEY>          Key (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)");
-    println!("  -c, --clef <CLEF>        Clef: treble, bass (default: treble). Sets the range of notes");
+    println!(
+        "  -c, --clef <CLEF>        Clef: treble, bass (default: treble). Sets the range of notes"
+    );
     println!("  -o, --octaves <COUNT>    Number of octaves to cover, 1 to 10 (default: 2)");
     println!("  -d, --durations <TYPE>   Duration types: simple, quarter, dotted (default: all)");
     println!("  -i, --intervals <TYPE>   Interval types: steps, steps-skips, large (default: all)");
     println!("  -f, --format <FORMAT>    Output format: ascii, pdf (default: ascii)");
     println!("      --output <FILE>      Output file path (for PDF; default: exercise.pdf)");
-    println!("      --midi <FILE>        Also save the exercise as a MIDI file (works with any format)");
-    println!("      --wav <FILE>         Also save the exercise as a WAV audio file (needs a SoundFont)");
+    println!(
+        "      --midi <FILE>        Also save the exercise as a MIDI file (works with any format)"
+    );
+    println!(
+        "      --wav <FILE>         Also save the exercise as a WAV audio file (needs a SoundFont)"
+    );
     println!("      --soundfont <FILE>   SoundFont (.sf2) for --wav (default: the SOUNDFONT environment variable)");
     println!("  -t, --tempo <BPM>        MIDI/WAV speed, 20 to 300 (default: 80)");
-    println!("      --count-in           Start the MIDI/WAV file with a measure of metronome clicks");
+    println!(
+        "      --count-in           Start the MIDI/WAV file with a measure of metronome clicks"
+    );
     println!("  -h, --help               Show this help message");
     println!("\nExamples:");
     println!("  sight-reading -m 8 -k G -o 3");
@@ -423,7 +432,11 @@ mod tests {
         for clef in [Clef::Treble, Clef::Bass] {
             for count in 1u8..=8 {
                 let (min, max) = octave_midi_range(count, clef);
-                assert_eq!(max as i32 - min as i32 + 1, count as i32 * 12, "{clef} count {count}");
+                assert_eq!(
+                    max as i32 - min as i32 + 1,
+                    count as i32 * 12,
+                    "{clef} count {count}"
+                );
                 assert_eq!(min % 12, 0);
             }
         }
@@ -436,7 +449,10 @@ mod tests {
             for count in 1u8..=6 {
                 let (min, max) = octave_midi_range(count, clef);
                 let centre = (min as f32 + max as f32) / 2.0;
-                assert!((centre - clef.middle_line_midi() as f32).abs() <= 6.0, "{clef} count {count}");
+                assert!(
+                    (centre - clef.middle_line_midi() as f32).abs() <= 6.0,
+                    "{clef} count {count}"
+                );
             }
         }
     }
@@ -455,7 +471,10 @@ mod tests {
     // ----- command line parsing -----
 
     fn args(arguments: &[&str]) -> Vec<String> {
-        std::iter::once("sight-reading").chain(arguments.iter().copied()).map(String::from).collect()
+        std::iter::once("sight-reading")
+            .chain(arguments.iter().copied())
+            .map(String::from)
+            .collect()
     }
 
     fn run(arguments: &[&str]) -> Options {
@@ -477,7 +496,10 @@ mod tests {
         let options = run(&[]);
         assert_eq!(options.num_measures, 4);
         assert_eq!(options.clef, Clef::Treble);
-        assert_eq!((options.range.min_midi(), options.range.max_midi()), (60, 83));
+        assert_eq!(
+            (options.range.min_midi(), options.range.max_midi()),
+            (60, 83)
+        );
         assert_eq!(options.output_format, "ascii");
         assert_eq!(options.output_file, None);
         assert_eq!(options.midi_file, None);
@@ -522,22 +544,34 @@ mod tests {
     fn test_short_o_sets_the_octaves() {
         // The README has always shown -o as the octave count
         let options = run(&["-m", "16", "-k", "G", "-o", "3"]);
-        assert_eq!((options.range.min_midi(), options.range.max_midi()), (48, 83));
+        assert_eq!(
+            (options.range.min_midi(), options.range.max_midi()),
+            (48, 83)
+        );
         assert_eq!(options.num_measures, 16);
     }
 
     #[test]
     fn test_long_octaves_flag() {
         let options = run(&["--octaves", "1"]);
-        assert_eq!((options.range.min_midi(), options.range.max_midi()), (60, 71));
+        assert_eq!(
+            (options.range.min_midi(), options.range.max_midi()),
+            (60, 71)
+        );
     }
 
     #[test]
     fn test_octaves_follow_the_clef_in_any_order() {
         let bass_first = run(&["--clef", "bass", "-o", "1"]);
         let bass_last = run(&["-o", "1", "--clef", "bass"]);
-        assert_eq!((bass_first.range.min_midi(), bass_first.range.max_midi()), (48, 59));
-        assert_eq!((bass_last.range.min_midi(), bass_last.range.max_midi()), (48, 59));
+        assert_eq!(
+            (bass_first.range.min_midi(), bass_first.range.max_midi()),
+            (48, 59)
+        );
+        assert_eq!(
+            (bass_last.range.min_midi(), bass_last.range.max_midi()),
+            (48, 59)
+        );
     }
 
     #[test]
@@ -550,7 +584,10 @@ mod tests {
     #[test]
     fn test_octaves_and_output_can_be_given_together() {
         let options = run(&["-o", "3", "--output", "x.pdf", "-f", "pdf"]);
-        assert_eq!((options.range.min_midi(), options.range.max_midi()), (48, 83));
+        assert_eq!(
+            (options.range.min_midi(), options.range.max_midi()),
+            (48, 83)
+        );
         assert_eq!(options.output_file.as_deref(), Some("x.pdf"));
     }
 
@@ -589,7 +626,24 @@ mod tests {
 
     #[test]
     fn test_missing_values() {
-        for flag in ["-o", "--octaves", "-k", "--key", "-c", "--clef", "-d", "-i", "-f", "-m", "--output", "--midi", "--wav", "--soundfont", "-t", "--tempo"] {
+        for flag in [
+            "-o",
+            "--octaves",
+            "-k",
+            "--key",
+            "-c",
+            "--clef",
+            "-d",
+            "-i",
+            "-f",
+            "-m",
+            "--output",
+            "--midi",
+            "--wav",
+            "--soundfont",
+            "-t",
+            "--tempo",
+        ] {
             let message = error(&[flag]);
             assert!(message.contains("requires a value"), "{flag}: {message}");
         }
@@ -617,10 +671,16 @@ mod tests {
     #[test]
     fn test_resolve_soundfont_prefers_the_flag_then_env_then_errors() {
         let some = |s: &str| Some(s.to_string());
-        assert_eq!(resolve_soundfont(some("a.sf2"), some("b.sf2")).unwrap(), "a.sf2");
+        assert_eq!(
+            resolve_soundfont(some("a.sf2"), some("b.sf2")).unwrap(),
+            "a.sf2"
+        );
         assert_eq!(resolve_soundfont(None, some("b.sf2")).unwrap(), "b.sf2");
         let message = resolve_soundfont(None, None).unwrap_err();
-        assert!(message.contains("--soundfont") && message.contains("SOUNDFONT"), "{message}");
+        assert!(
+            message.contains("--soundfont") && message.contains("SOUNDFONT"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -634,29 +694,45 @@ mod tests {
     fn test_help() {
         assert!(matches!(parse_args(&args(&["--help"])), Ok(Command::Help)));
         assert!(matches!(parse_args(&args(&["-h"])), Ok(Command::Help)));
-        assert!(matches!(parse_args(&args(&["-m", "8", "--help"])), Ok(Command::Help)));
+        assert!(matches!(
+            parse_args(&args(&["-m", "8", "--help"])),
+            Ok(Command::Help)
+        ));
     }
 
     #[test]
     fn test_the_whole_example_from_the_help_text() {
-        let options = run(&["--format", "pdf", "--output", "bass.pdf", "--clef", "bass", "-k", "F", "-m", "8"]);
+        let options = run(&[
+            "--format", "pdf", "--output", "bass.pdf", "--clef", "bass", "-k", "F", "-m", "8",
+        ]);
         assert_eq!(options.clef, Clef::Bass);
         assert_eq!(options.num_measures, 8);
         assert_eq!(options.output_file.as_deref(), Some("bass.pdf"));
-        assert_eq!((options.range.min_midi(), options.range.max_midi()), (36, 59));
+        assert_eq!(
+            (options.range.min_midi(), options.range.max_midi()),
+            (36, 59)
+        );
     }
 
     #[test]
     fn test_help_text_gives_o_to_octaves_only() {
         // Guard against the old clash coming back: no two options may share a short flag
         let source = include_str!("main.rs");
-        let help = source.split("fn print_help()").nth(1).unwrap().split("#[cfg(test)]").next().unwrap();
+        let help = source
+            .split("fn print_help()")
+            .nth(1)
+            .unwrap()
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
         let mut shorts: Vec<&str> = help
             .lines()
             .filter_map(|line| line.split("println!(\"").nth(1))
             .filter_map(|line| {
                 let line = line.trim_start();
-                line.strip_prefix('-').filter(|rest| !rest.starts_with('-')).map(|rest| &rest[..1])
+                line.strip_prefix('-')
+                    .filter(|rest| !rest.starts_with('-'))
+                    .map(|rest| &rest[..1])
             })
             .collect();
         let total = shorts.len();
