@@ -101,7 +101,7 @@ impl MusicalPhraseGenerator {
     }
 
     /// Generate a complete exercise measure
-    pub fn generate_measure(&self, measure_number: u32) -> Vec<Note> {
+    pub fn generate_measure(&self, _measure_number: u32) -> Vec<Note> {
         let beats_per_measure = self.time_signature.total_beats();
         self.generate_phrase(beats_per_measure)
     }

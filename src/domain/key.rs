@@ -157,7 +157,7 @@ impl KeySignature {
                 11 => 7, //Cb
                 _ => 0,
             };
-            return (-flats as i32, Self::flat_root(flats as u8));
+            return ((-flats), Self::flat_root(flats as u8));
         }
 
         match mode {
@@ -204,7 +204,7 @@ impl KeySignature {
 
     /// Get the number of accidentals (always non-negative)
     pub fn count(&self) -> u8 {
-        self.accidental_count.abs() as u8
+        self.accidental_count.unsigned_abs() as u8
     }
 
     /// Get the accidental for a given scale step (0-6)

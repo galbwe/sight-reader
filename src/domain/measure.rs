@@ -1,6 +1,6 @@
 //! Measure representation
 
-use crate::domain::{KeyMode, KeySignature, Note, NoteDuration, TimeSignature};
+use crate::domain::{KeySignature, Note, TimeSignature};
 use std::fmt;
 
 /// Represents a measure in a musical piece

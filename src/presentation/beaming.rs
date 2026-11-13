@@ -86,7 +86,7 @@ pub fn beat_ticks(time: &TimeSignature) -> u32 {
         32 => TICKS_PER_QUARTER / 8,
         _ => TICKS_PER_QUARTER,
     };
-    let compound = time.denominator >= 8 && time.numerator % 3 == 0;
+    let compound = time.denominator >= 8 && time.numerator.is_multiple_of(3);
     if compound {
         unit * 3
     } else {
@@ -221,7 +221,7 @@ pub fn group_stems_up(positions: &[i32]) -> bool {
 /// second half points left. A sixteenth after a dotted eighth therefore points back at it.
 pub fn stub_points_right(onset: u32, level: u8) -> bool {
     let unit = (TICKS_PER_QUARTER >> level.min(6)).max(1);
-    (onset / unit) % 2 == 0
+    (onset / unit).is_multiple_of(2)
 }
 
 /// One note of a beamed group, in staff spaces
@@ -423,7 +423,7 @@ pub fn layout_group(notes: &[BeamNote], metrics: &BeamMetrics) -> BeamedGroup {
             }
 
             let cost = SLANT_WEIGHT * (slant_y - target_y).abs() + extra / notes.len() as f32;
-            if best.map_or(true, |(best_cost, _, _)| cost < best_cost - 1e-6) {
+            if best.is_none_or(|(best_cost, _, _)| cost < best_cost - 1e-6) {
                 best = Some((cost, first_tip, last_tip));
             }
         }
