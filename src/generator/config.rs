@@ -50,10 +50,56 @@ impl NoteDurationSelection {
         }
     }
 
+    /// Create a selection with only quarter notes
+    pub fn quarter_notes() -> Self {
+        NoteDurationSelection {
+            whole: DurationWeight::Disabled,
+            half: DurationWeight::Disabled,
+            quarter: DurationWeight::Enabled(1),
+            eighth: DurationWeight::Disabled,
+            sixteenth: DurationWeight::Disabled,
+            dotted_quarter: false,
+            dotted_eighth: false,
+            dotted_sixteenth: false,
+            triplet_quarter: false,
+            triplet_eighth: false,
+        }
+    }
+
+    pub fn eighth_notes() -> Self {
+        NoteDurationSelection {
+            whole: DurationWeight::Disabled,
+            half: DurationWeight::Disabled,
+            quarter: DurationWeight::Disabled,
+            eighth: DurationWeight::Enabled(1),
+            sixteenth: DurationWeight::Disabled,
+            dotted_quarter: false,
+            dotted_eighth: false,
+            dotted_sixteenth: false,
+            triplet_quarter: false,
+            triplet_eighth: false,
+        }
+    }
+
+    pub fn sixteenth_notes() -> Self {
+        NoteDurationSelection {
+            whole: DurationWeight::Disabled,
+            half: DurationWeight::Disabled,
+            quarter: DurationWeight::Disabled,
+            eighth: DurationWeight::Disabled,
+            sixteenth: DurationWeight::Enabled(1),
+            dotted_quarter: false,
+            dotted_eighth: false,
+            dotted_sixteenth: false,
+            triplet_quarter: false,
+            triplet_eighth: false,
+        }
+    }
+
     /// Get valid durations that fit within a given time span (in beats)
     pub fn get_valid_durations(&self, max_duration: f64) -> Vec<NoteDuration> {
         let mut durations = Vec::new();
-        
+
         if self.whole.weight() > 0 && max_duration >= 4.0 {
             durations.push(NoteDuration::Whole);
         }
@@ -69,7 +115,7 @@ impl NoteDurationSelection {
         if self.sixteenth.weight() > 0 && max_duration >= 0.25 {
             durations.push(NoteDuration::Sixteenth);
         }
-        
+
         durations
     }
 
@@ -117,11 +163,11 @@ impl DurationWeight {
 /// Configuration for which intervals to include
 #[derive(Debug, Clone)]
 pub struct IntervalSelection {
-    pub steps: bool,          // Minor and major seconds
-    pub skips: bool,          // Thirds and larger
-    pub leaps: bool,          // Fourth and larger
-    pub unisons: bool,        // Same note repeated
-    pub octave: bool,         // Octave jumps
+    pub steps: bool,   // Minor and major seconds
+    pub skips: bool,   // Thirds and larger
+    pub leaps: bool,   // Fourth and larger
+    pub unisons: bool, // Same note repeated
+    pub octave: bool,  // Octave jumps
     pub direction_bias: DirectionBias,
 }
 
