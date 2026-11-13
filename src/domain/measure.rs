@@ -111,6 +111,7 @@ impl fmt::Display for Measure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::{KeyMode, NoteDuration};
 
     #[test]
     fn test_measure_creation() {

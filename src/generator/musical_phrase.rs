@@ -42,7 +42,6 @@ impl MusicalPhraseGenerator {
                     let shorter_beats = Self::note_beats(&shorter_note, self.time_signature);
                     if shorter_beats <= remaining_beats {
                         notes.push(shorter_note);
-                        remaining_beats -= shorter_beats;
                     }
                 }
                 break;
@@ -70,8 +69,6 @@ impl MusicalPhraseGenerator {
             NoteDuration::Quarter
         } else if remaining_beats >= 1.0 {
             NoteDuration::Eighth
-        } else if remaining_beats >= 0.5 {
-            NoteDuration::Sixteenth
         } else {
             NoteDuration::Sixteenth
         }

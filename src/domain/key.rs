@@ -140,10 +140,7 @@ impl KeySignature {
         // First check if this is a flat key by looking at root_note directly
         // For flat keys, use root values that don't match the sharp key pattern
         // F=53 (F4), Bb=58 (Bb4), Eb=51 (Eb4), Ab=56 (Ab4), Db=49 (Db4), Gb=54 (Gb4), Cb=47 (Cb4)
-        let is_flat_key = match root_note {
-            53 | 58 | 51 | 56 | 49 | 54 | 47 => true,
-            _ => false,
-        };
+        let is_flat_key = matches!(root_note, 53 | 58 | 51 | 56 | 49 | 54 | 47);
 
         if is_flat_key {
             // Use root_step for flat key lookup

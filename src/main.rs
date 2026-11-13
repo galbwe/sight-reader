@@ -1,5 +1,9 @@
 //! Sight Reading Trainer - A Rust application for generating sight reading exercises
 
+// The domain, generator and presentation layers expose builder methods and
+// variants that the CLI does not use yet (see AGENTS.md, "Extension Points").
+#![allow(dead_code)]
+
 mod domain;
 mod generator;
 mod presentation;
